@@ -55,7 +55,7 @@ export const sendMessage = createServerFn({ method: "POST" })
     ]);
     const q = new Set(words(data.content));
     const neuroCats = new Set(["connectomics", "cells", "physiology", "noreu_research_notes", "quantum"]);
-    const scoped = (docs.data ?? []).filter((d) => session.scope === "cross_project" || (session.scope === "neural_atlas" ? neuroCats.has(d.category ?? "") : !neuroCats.has(d.category ?? "")) || true);
+    const scoped = (docs.data ?? []).filter((d) => session.scope === "cross_project" || (session.scope === "neural_atlas" ? neuroCats.has(d.category ?? "") : !neuroCats.has(d.category ?? "")));
     const excerptCount = new Map<string, number>();
     (exs.data ?? []).forEach((e) => excerptCount.set(e.source_id, (excerptCount.get(e.source_id) ?? 0) + 1));
     const score = (t: string) => words(t).filter((w) => q.has(w)).length;

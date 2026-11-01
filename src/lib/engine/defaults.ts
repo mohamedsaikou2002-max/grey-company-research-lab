@@ -1,0 +1,55 @@
+import type { RunInput } from "./swarm";
+
+export const defaultInput: RunInput = {
+  swarm: {
+    title: "Fictional professional association",
+    description: "Synthetic governance archetype. Not a model of any real organization.",
+    institutional_type: "fictional archetype",
+    roles: [
+      { id: "leadership", label: "Leadership", share: 0.15 },
+      { id: "members", label: "Members", share: 0.6 },
+      { id: "compliance", label: "Compliance", share: 0.1 },
+      { id: "outer", label: "Outer network", share: 0.15 },
+    ],
+    motives: {
+      financial_gain: 0.15,
+      prestige_status: 0.12,
+      group_belonging: 0.15,
+      ideological_commitment: 0.05,
+      institutional_self_preservation: 0.1,
+      procedural_duty: 0.1,
+      justice_compassion: 0.08,
+      no_special_interest: 0.25,
+    },
+    custom_motives: [],
+    motive_provenance: { no_special_interest: "Default alternative per v4.1 spec §B: most actors have no special interest in the protagonist." },
+    strategy: { collaboration: 0.2, due_diligence: 0.2, competition: 0.2, internal_deliberation: 0.15, disengagement: 0.15, oversight_remediation: 0.1 },
+    objective: "",
+    traits: {
+      cohesion: 0.6, hierarchy: 0.5, pluralism: 0.5, accountability: 0.5, defensiveness: 0.4,
+      openness: 0.5, integrity: 0.6, dissent_safety: 0.5, reputational_pressure: 0.5, reward_sensitivity: 0.5,
+    },
+  },
+  individual: {
+    name: "Synthetic founder",
+    motives: { autonomy: 0.25, wealth_market_growth: 0.2, duty_justice: 0.15, reputation: 0.1, security: 0.1, service: 0.1, relationship_building: 0.1 },
+    custom_motives: [],
+    strategies: ["transparent_engagement", "evidence_verification"],
+    lawful_objective: "Launch a lawful small business and build fair partnerships.",
+    ethical_boundaries: "No deception, no harassment, verify before accusing.",
+    transparency: 0.7,
+    traits: { patience: 0.6, humility: 0.6, verification_discipline: 0.7, compassion: 0.6, boundary_discipline: 0.6, stress_tolerance: 0.5, financial_runway: 0.5, willingness_to_collaborate: 0.6 },
+    ethics_lens: "none",
+  },
+  scenario: {
+    narrative: "The founder proposes a partnership to the association and enters a shared market.",
+    event_type: "business_proposal",
+    evidence_tier: "documented",
+    months: 24,
+    agents: 120,
+    seed: 19,
+    trials: 10,
+    safeguards: 0.5,
+    external_shock: 0.2,
+  },
+};

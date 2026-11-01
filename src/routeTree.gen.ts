@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as NeuralAtlasRouteImport } from './routes/neural-atlas'
+import { Route as OccultKillerRouteImport } from './routes/occult-killer'
+import { Route as ResearchAiRouteImport } from './routes/research-ai'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NeuralAtlasRoute = NeuralAtlasRouteImport.update({
+  id: '/neural-atlas',
+  path: '/neural-atlas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OccultKillerRoute = OccultKillerRouteImport.update({
+  id: '/occult-killer',
+  path: '/occult-killer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResearchAiRoute = ResearchAiRouteImport.update({
+  id: '/research-ai',
+  path: '/research-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/neural-atlas': typeof NeuralAtlasRoute
+  '/occult-killer': typeof OccultKillerRoute
+  '/research-ai': typeof ResearchAiRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/neural-atlas': typeof NeuralAtlasRoute
+  '/occult-killer': typeof OccultKillerRoute
+  '/research-ai': typeof ResearchAiRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/neural-atlas': typeof NeuralAtlasRoute
+  '/occult-killer': typeof OccultKillerRoute
+  '/research-ai': typeof ResearchAiRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/neural-atlas' | '/occult-killer' | '/research-ai'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/neural-atlas' | '/occult-killer' | '/research-ai'
+  id: '__root__' | '/' | '/neural-atlas' | '/occult-killer' | '/research-ai'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  NeuralAtlasRoute: typeof NeuralAtlasRoute
+  OccultKillerRoute: typeof OccultKillerRoute
+  ResearchAiRoute: typeof ResearchAiRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/neural-atlas': {
+      id: '/neural-atlas'
+      path: '/neural-atlas'
+      fullPath: '/neural-atlas'
+      preLoaderRoute: typeof NeuralAtlasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/occult-killer': {
+      id: '/occult-killer'
+      path: '/occult-killer'
+      fullPath: '/occult-killer'
+      preLoaderRoute: typeof OccultKillerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/research-ai': {
+      id: '/research-ai'
+      path: '/research-ai'
+      fullPath: '/research-ai'
+      preLoaderRoute: typeof ResearchAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  NeuralAtlasRoute: NeuralAtlasRoute,
+  OccultKillerRoute: OccultKillerRoute,
+  ResearchAiRoute: ResearchAiRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

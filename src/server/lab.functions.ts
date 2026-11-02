@@ -126,9 +126,9 @@ export const createPythonRun = createServerFn({ method: "POST" })
       transparency: data.individual.transparency,
       groups: data.swarm.roles.map((r) => ({
         id: r.id, label: r.label, proportion: r.share,
-        authority_deference: t.hierarchy ?? 0.5, status_incentive: data.swarm.motives.prestige_status ?? 0.5,
-        fear_of_loss: t.defensiveness ?? 0.5, peer_conformity: t.cohesion ?? 0.5, integrity: t.integrity ?? 0.5,
-        critical_reflection: t.openness ?? 0.5, dissent_safety: t.dissent_safety ?? 0.5,
+        authority_deference: t["hierarchy"] ?? 0.5, status_incentive: data.swarm.motives["prestige_status"] ?? 0.5,
+        fear_of_loss: t["defensiveness"] ?? 0.5, peer_conformity: t["cohesion"] ?? 0.5, integrity: t["integrity"] ?? 0.5,
+        critical_reflection: t["openness"] ?? 0.5, dissent_safety: t["dissent_safety"] ?? 0.5,
       })),
     };
     const r = await fetch(`${url}/api/run`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -180,7 +180,18 @@ export const ingestExcerpt = createServerFn({ method: "POST" })
     }).parse(d),
   )
   .handler(async ({ data }) => {
-    const { data: row, error } = await (await db()).from("source_excerpts").insert(data).select().single();
+    const { data: row, error } = await (await db())
+      .from("source_excerpts")
+      .insert({
+        source_id: data.source_id,
+        excerpt: data.excerpt,
+        claim_status: data.claim_status,
+        provenance: data.provenance,
+        ...(data.page ? { page: data.page } : {}),
+        ...(data.independence_cluster ? { independence_cluster: data.independence_cluster } : {}),
+      })
+      .select()
+      .single();
     fail(error);
     return row!;
   });

@@ -174,6 +174,7 @@ export function hashInput(v: unknown): string {
 }
 
 const EVIDENCE_WEIGHT = { documented: 1, corroborated: 0.75, single_testimony: 0.35, rumor: 0.1 } as const;
+const ZERO = Object.fromEntries(RESPONSES.map((r) => [r, 0])) as Record<Response, number>;
 
 export type Frame = {
   month: number;
@@ -201,27 +202,27 @@ function utilities(
 ): { u: Record<Response, number>; parts: Record<string, number> } {
   const g = (k: string) => t[k] ?? 0.5;
   const parts = {
-    "financial gain": m.financial_gain ?? 0,
-    "prestige/status": m.prestige_status ?? 0,
-    belonging: m.group_belonging ?? 0,
-    "self-preservation": m.institutional_self_preservation ?? 0,
-    "procedural duty": m.procedural_duty ?? 0,
-    "justice/compassion": m.justice_compassion ?? 0,
-    "no special interest": m.no_special_interest ?? 0,
+    "financial gain": m["financial_gain"] ?? 0,
+    "prestige/status": m["prestige_status"] ?? 0,
+    belonging: m["group_belonging"] ?? 0,
+    "self-preservation": m["institutional_self_preservation"] ?? 0,
+    "procedural duty": m["procedural_duty"] ?? 0,
+    "justice/compassion": m["justice_compassion"] ?? 0,
+    "no special interest": m["no_special_interest"] ?? 0,
     "evidence strength": ctx.evidence,
     oversight: g("accountability") * ctx.safeguards,
   };
   const u: Record<Response, number> = {
     no_response: 1.4 * parts["no special interest"] + 0.4 * (1 - ctx.evidence) + 0.3 * ctx.shock,
     routine_competition: 1.6 * parts["financial gain"] * ind.market + 0.4 * g("reward_sensitivity"),
-    collaboration: 1.2 * (m.financial_gain ?? 0) * ind.collab + 0.8 * g("openness") + 0.6 * (st.collaboration ?? 0) + 0.4 * ind.transparency,
+    collaboration: 1.2 * (m["financial_gain"] ?? 0) * ind.collab + 0.8 * g("openness") + 0.6 * (st["collaboration"] ?? 0) + 0.4 * ind.transparency,
     dialogue: 0.9 * g("openness") + 0.6 * g("pluralism") + 0.5 * ind.openness,
-    due_diligence: 1.1 * parts["procedural duty"] + 0.8 * (st.due_diligence ?? 0) + 0.5 * ctx.evidence,
+    due_diligence: 1.1 * parts["procedural duty"] + 0.8 * (st["due_diligence"] ?? 0) + 0.5 * ctx.evidence,
     scrutiny: 0.9 * parts["prestige/status"] + 0.8 * g("reputational_pressure") * (ctx.rumor ? 0.6 : 1) + 0.4 * g("defensiveness"),
-    disengagement: 0.8 * (st.disengagement ?? 0) + 0.6 * parts["self-preservation"] + 0.3 * ctx.shock,
-    internal_review: 0.9 * g("integrity") * ctx.evidence + 0.8 * (st.internal_deliberation ?? 0) + 0.5 * g("dissent_safety"),
+    disengagement: 0.8 * (st["disengagement"] ?? 0) + 0.6 * parts["self-preservation"] + 0.3 * ctx.shock,
+    internal_review: 0.9 * g("integrity") * ctx.evidence + 0.8 * (st["internal_deliberation"] ?? 0) + 0.5 * g("dissent_safety"),
     accountability:
-      1.3 * parts.oversight * ctx.evidence + 0.9 * parts["justice/compassion"] * ctx.evidence + 0.6 * (st.oversight_remediation ?? 0) - 0.9 * g("defensiveness") * disengage,
+      1.3 * parts.oversight * ctx.evidence + 0.9 * parts["justice/compassion"] * ctx.evidence + 0.6 * (st["oversight_remediation"] ?? 0) - 0.9 * g("defensiveness") * disengage,
   };
   return { u, parts };
 }
@@ -244,10 +245,10 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
   const it = individual.traits;
   const strat = new Set(individual.strategies);
   const ind = {
-    openness: clip(0.3 + 0.4 * (it.humility ?? 0.5) + (strat.has("transparent_engagement") ? 0.2 : 0)),
+    openness: clip(0.3 + 0.4 * (it["humility"] ?? 0.5) + (strat.has("transparent_engagement") ? 0.2 : 0)),
     transparency: individual.transparency,
-    collab: clip((it.willingness_to_collaborate ?? 0.5) + (strat.has("partnership_outreach") ? 0.2 : 0)),
-    market: clip(0.3 + (individual.motives.wealth_market_growth ?? 0) + (strat.has("market_entry") ? 0.3 : 0)),
+    collab: clip((it["willingness_to_collaborate"] ?? 0.5) + (strat.has("partnership_outreach") ? 0.2 : 0)),
+    market: clip(0.3 + (individual.motives["wealth_market_growth"] ?? 0) + (strat.has("market_entry") ? 0.3 : 0)),
   };
   const evidence = EVIDENCE_WEIGHT[scenario.evidence_tier];
   const rumor = scenario.evidence_tier === "rumor" || scenario.event_type === "unsupported_rumor";
@@ -255,13 +256,13 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
   const rs = roles.reduce((a, r) => a + r.share, 0) || 1;
   const agents = Array.from({ length: scenario.agents }, (_, i) => {
     let x = rng() * rs;
-    const role = roles.find((r) => (x -= r.share) <= 0) ?? roles[roles.length - 1];
+    const role = roles.find((r) => (x -= r.share) <= 0) ?? roles[roles.length - 1] ?? { id: "unassigned", label: "Unassigned", share: 0 };
     const traits = Object.fromEntries(Object.entries(swarm.traits).map(([k, v]) => [k, clip(v + 0.12 * gauss(rng))]));
-    return { id: i, role: role.label, traits, re: 0.25 * gauss(rng), d: clip(0.2 + 0.25 * (1 - (traits.integrity ?? 0.5))), state: "no_response" as Response, last: null as null | ReturnType<typeof utilities> };
+    return { id: i, role: role.label, traits, re: 0.25 * gauss(rng), d: clip(0.2 + 0.25 * (1 - (traits["integrity"] ?? 0.5))), state: "no_response" as Response, last: null as null | ReturnType<typeof utilities> };
   });
   const frames: Frame[] = [];
-  let cohesion = swarm.traits.cohesion ?? 0.5;
-  let acc = swarm.traits.accountability ?? 0.5;
+  let cohesion = swarm.traits["cohesion"] ?? 0.5;
+  let acc = swarm.traits["accountability"] ?? 0.5;
   for (let month = 1; month <= scenario.months; month++) {
     const counts = Object.fromEntries(RESPONSES.map((r) => [r, 0])) as Record<Response, number>;
     const shock = scenario.external_shock * (rng() < 0.15 ? 1 : 0.2);
@@ -273,7 +274,7 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
       const s = ex.reduce((p, q) => p + q, 0);
       let x = rng() * s;
       const idx = Math.max(0, ex.findIndex((e) => (x -= e) <= 0));
-      a.state = RESPONSES[idx];
+      a.state = RESPONSES[idx] ?? "no_response";
       a.last = res;
       counts[a.state]++;
       const bad = a.state === "disengagement" || a.state === "scrutiny";
@@ -290,7 +291,7 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
       cohesion: +cohesion.toFixed(4),
       accountability: +acc.toFixed(4),
       indices: {
-        autonomy: +clip((individual.motives.autonomy ?? 0.3) * 0.5 + 0.5 * (1 - share("scrutiny") - share("disengagement"))).toFixed(4),
+        autonomy: +clip((individual.motives["autonomy"] ?? 0.3) * 0.5 + 0.5 * (1 - share("scrutiny") - share("disengagement"))).toFixed(4),
         safety: +clip(1 - share("scrutiny") * (1 - scenario.safeguards) - 0.3 * shock).toFixed(4),
         integrity: +clip(1 - meanD).toFixed(4),
         evidence: evidence,
@@ -317,8 +318,8 @@ export function runSimulation(raw: RunInput): RunResult {
   const input = RunInputSchema.parse(raw);
   const { scenario } = input;
   const trials = Array.from({ length: scenario.trials }, (_, k) => runOnce(input, (scenario.seed + k * 7919) >>> 0, k === 0));
-  const frames: Frame[] = trials[0].frames.map((f, i) => {
-    const avg = (get: (fr: Frame) => number) => +(trials.reduce((p, t) => p + get(t.frames[i]), 0) / trials.length).toFixed(4);
+  const frames: Frame[] = (trials[0]?.frames ?? []).map((f, i) => {
+    const avg = (get: (fr: Frame) => number) => +(trials.reduce((p, t) => p + get(t.frames[i] ?? f), 0) / trials.length).toFixed(4);
     return {
       month: f.month,
       responses: Object.fromEntries(RESPONSES.map((r) => [r, avg((fr) => fr.responses[r])])) as Record<Response, number>,
@@ -332,7 +333,7 @@ export function runSimulation(raw: RunInput): RunResult {
       },
     };
   });
-  const last = trials.map((t) => t.frames[t.frames.length - 1].responses);
+  const last = trials.map((t) => t.frames[t.frames.length - 1]?.responses ?? ZERO);
   const ci90 = Object.fromEntries(
     RESPONSES.map((r) => {
       const v = last.map((x) => x[r]).sort((a, b) => a - b);
@@ -345,7 +346,7 @@ export function runSimulation(raw: RunInput): RunResult {
     input_hash: hashInput(input),
     seed: scenario.seed,
     frames,
-    agents: trials[0].agents,
-    summary: { final: frames[frames.length - 1].responses, label: "SYNTHETIC / UNVALIDATED", trials: scenario.trials, ci90 },
+    agents: trials[0]?.agents ?? [],
+    summary: { final: frames[frames.length - 1]?.responses ?? ZERO, label: "SYNTHETIC / UNVALIDATED", trials: scenario.trials, ci90 },
   };
 }

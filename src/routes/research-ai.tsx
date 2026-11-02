@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Panel, Tag } from "@/components/lab/Shell";
 import { inputCls, download } from "@/components/lab/controls";
-import { createSession, getMessages, listSessions, sendMessage } from "@/server/chat.functions";
-import { listRuns, listNeuralRuns } from "@/server/lab.functions";
+import { createSession, getMessages, listSessions, sendMessage } from "@/lib/chat.functions";
+import { listRuns, listNeuralRuns } from "@/lib/lab.functions";
 
 export const Route = createFileRoute("/research-ai")({
   head: () => ({

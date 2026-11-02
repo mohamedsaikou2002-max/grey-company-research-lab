@@ -7,13 +7,17 @@ export function WeightEditor({ value, onChange, normalized = true }: { value: Re
   const n = normalized ? normalize(value) : value;
   return (
     <div className="space-y-2">
-      {Object.keys(value).map((k) => (
-        <div key={k} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
-          <label htmlFor={`w-${k}`} className="text-xs capitalize">{pretty(k)}</label>
-          <span className="font-mono text-[11px] text-muted-foreground">{value[k].toFixed(2)}{normalized && ` → ${(n[k] * 100).toFixed(0)}%`}</span>
-          <Slider id={`w-${k}`} aria-label={pretty(k)} className="col-span-2" min={0} max={1} step={0.01} value={[value[k]]} onValueChange={([v]) => onChange({ ...value, [k]: v })} />
-        </div>
-      ))}
+      {Object.keys(value).map((k) => {
+        const raw = value[k] ?? 0;
+        const share = n[k] ?? 0;
+        return (
+          <div key={k} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
+            <label htmlFor={`w-${k}`} className="text-xs capitalize">{pretty(k)}</label>
+            <span className="font-mono text-[11px] text-muted-foreground">{raw.toFixed(2)}{normalized && ` → ${(share * 100).toFixed(0)}%`}</span>
+            <Slider id={`w-${k}`} aria-label={pretty(k)} className="col-span-2" min={0} max={1} step={0.01} value={[raw]} onValueChange={(vals) => onChange({ ...value, [k]: vals[0] ?? raw })} />
+          </div>
+        );
+      })}
     </div>
   );
 }

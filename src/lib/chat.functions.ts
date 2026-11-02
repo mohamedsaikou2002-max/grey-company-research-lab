@@ -71,7 +71,7 @@ export const sendMessage = createServerFn({ method: "POST" })
     }
     for (const { e } of ctxEx) {
       blocks.push(`<CONTEXT id="ex:${e.id.slice(0, 8)}" type="excerpt" source="${e.source_id}" page="${e.page ?? ""}" claim_status="${e.claim_status}">\n${e.excerpt}\n</CONTEXT>`);
-      citations.push({ id: `ex:${e.id.slice(0, 8)}`, title: `Excerpt from ${e.source_id}`, kind: e.claim_status, detail: e.page ?? undefined });
+      citations.push({ id: `ex:${e.id.slice(0, 8)}`, title: `Excerpt from ${e.source_id}`, kind: e.claim_status, ...(e.page ? { detail: e.page } : {}) });
     }
     if (data.run_id) {
       const table = session.scope === "neural_atlas" ? "neural_runs" : "simulation_runs";

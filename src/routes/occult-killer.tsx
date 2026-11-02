@@ -12,7 +12,7 @@ import { WeightEditor, Field, inputCls, download } from "@/components/lab/contro
 import { SwarmNetwork, LEGEND } from "@/components/lab/SwarmNetwork";
 import { defaultInput } from "@/lib/engine/defaults";
 import { INDIVIDUAL_STRATEGIES, RESPONSES, type RunInput, type RunResult, type Swarm, type Individual, type Scenario } from "@/lib/engine/swarm";
-import { createRun, createPythonRun, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/server/lab.functions";
+import { createRun, createPythonRun, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/lib/lab.functions";
 
 export const Route = createFileRoute("/occult-killer")({
   head: () => ({
@@ -109,8 +109,8 @@ function OccultKiller() {
     try {
       const alt: RunInput = structuredClone({ swarm, individual: ind, scenario: sc });
       if (cfVar === "safeguards") alt.scenario.safeguards = Math.min(1, sc.safeguards + 0.3);
-      if (cfVar === "accountability") alt.swarm.traits.accountability = Math.min(1, (swarm.traits.accountability ?? 0.5) + 0.3);
-      if (cfVar === "competition") alt.swarm.motives.financial_gain = Math.min(1, (swarm.motives.financial_gain ?? 0) + 0.3);
+      if (cfVar === "accountability") alt.swarm.traits["accountability"] = Math.min(1, (swarm.traits["accountability"] ?? 0.5) + 0.3);
+      if (cfVar === "competition") alt.swarm.motives["financial_gain"] = Math.min(1, (swarm.motives["financial_gain"] ?? 0) + 0.3);
       setCf(await fRun({ data: { input: alt } }));
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
@@ -177,7 +177,7 @@ function OccultKiller() {
               <TabsContent value="motives" className="space-y-3">
                 <WeightEditor value={swarm.motives} onChange={(motives) => setSwarm({ ...swarm, motives })} />
                 <Field label="Provenance / assumptions for weights">
-                  <textarea className={inputCls} rows={2} value={Object.entries(swarm.motive_provenance).map(([k, v]) => `${k}: ${v}`).join("\n")} onChange={(e) => setSwarm({ ...swarm, motive_provenance: Object.fromEntries(e.target.value.split("\n").filter((l) => l.includes(":")).map((l) => [l.split(":")[0].trim(), l.split(":").slice(1).join(":").trim()])) })} />
+                  <textarea className={inputCls} rows={2} value={Object.entries(swarm.motive_provenance).map(([k, v]) => `${k}: ${v}`).join("\n")} onChange={(e) => setSwarm({ ...swarm, motive_provenance: Object.fromEntries(e.target.value.split("\n").filter((l) => l.includes(":")).map((l) => [(l.split(":")[0] ?? "").trim(), l.split(":").slice(1).join(":").trim()])) })} />
                 </Field>
                 <p className="text-[11px] text-muted-foreground">"Reward sensitivity" is a behavioral parameter (Traits tab), not dopamine receptor activity.</p>
               </TabsContent>
@@ -217,7 +217,7 @@ function OccultKiller() {
                 {ind.strategies.length === 0 && <p role="alert" className="text-xs underline">Pick at least one strategy.</p>}
                 <Field label="Lawful objective / business plan"><textarea className={inputCls} rows={2} value={ind.lawful_objective} onChange={(e) => setInd({ ...ind, lawful_objective: e.target.value })} /></Field>
                 <Field label="Ethical boundaries"><textarea className={inputCls} rows={2} value={ind.ethical_boundaries} onChange={(e) => setInd({ ...ind, ethical_boundaries: e.target.value })} /></Field>
-                <Field label={`Transparency ${ind.transparency.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[ind.transparency]} onValueChange={([v]) => setInd({ ...ind, transparency: v })} /></Field>
+                <Field label={`Transparency ${ind.transparency.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[ind.transparency]} onValueChange={(vals) => setInd({ ...ind, transparency: vals[0] ?? ind.transparency })} /></Field>
               </TabsContent>
               <TabsContent value="traits"><WeightEditor normalized={false} value={ind.traits} onChange={(traits) => setInd({ ...ind, traits })} /><p className="mt-2 text-[11px] text-muted-foreground">New v4 fields: stress tolerance, financial runway, willingness to collaborate.</p></TabsContent>
               <TabsContent value="ethics" className="space-y-2">
@@ -245,8 +245,8 @@ function OccultKiller() {
             ))}
           </div>
           <div className="space-y-2">
-            <Field label={`Safeguards ${sc.safeguards.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.safeguards]} onValueChange={([v]) => setSc({ ...sc, safeguards: v })} /></Field>
-            <Field label={`External shock ${sc.external_shock.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.external_shock]} onValueChange={([v]) => setSc({ ...sc, external_shock: v })} /></Field>
+            <Field label={`Safeguards ${sc.safeguards.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.safeguards]} onValueChange={(vals) => setSc({ ...sc, safeguards: vals[0] ?? sc.safeguards })} /></Field>
+            <Field label={`External shock ${sc.external_shock.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.external_shock]} onValueChange={(vals) => setSc({ ...sc, external_shock: vals[0] ?? sc.external_shock })} /></Field>
             <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python")}><option value="typescript">TypeScript v4 (built-in)</option><option value="python" disabled={!engine?.python.ok}>Python v2 {engine?.python.ok ? "" : "(not connected)"}</option></select></Field>
           </div>
         </div>
@@ -293,7 +293,7 @@ function OccultKiller() {
           </div>
 
           <Panel title="Replay & response distribution" actions={<Tag>SYNTHETIC / UNVALIDATED · utility-derived shares, not calibrated probabilities</Tag>}>
-            <label className="flex items-center gap-3 text-xs">Period <Slider className="flex-1" min={0} max={run.frames.length - 1} step={1} value={[month]} onValueChange={([v]) => setMonth(v)} aria-label="Month scrubber" /> <span className="font-mono">{frame?.month}/{run.frames.length}</span></label>
+            <label className="flex items-center gap-3 text-xs">Period <Slider className="flex-1" min={0} max={run.frames.length - 1} step={1} value={[month]} onValueChange={(vals) => setMonth(vals[0] ?? month)} aria-label="Month scrubber" /> <span className="font-mono">{frame?.month}/{run.frames.length}</span></label>
             <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
               {RESPONSES.map((r) => (
                 <div key={r} className="border border-border p-2">

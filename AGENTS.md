@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep client-imported `createServerFn` modules in `src/lib/*.functions.ts`, never under `src/server/`: import protection blocks `**/server/**` from client bundles, so pages importing them fail to load in preview even when the typecheck passes.

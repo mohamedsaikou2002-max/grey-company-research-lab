@@ -12,7 +12,7 @@ import { WeightEditor, Field, inputCls, download } from "@/components/lab/contro
 import { SwarmNetwork, LEGEND } from "@/components/lab/SwarmNetwork";
 import { defaultInput } from "@/lib/engine/defaults";
 import { INDIVIDUAL_STRATEGIES, RESPONSES, type RunInput, type RunResult, type Swarm, type Individual, type Scenario } from "@/lib/engine/swarm";
-import { createRun, createPythonRun, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/server/lab.functions";
+import { createRun, createPythonRun, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/lib/lab.functions";
 
 export const Route = createFileRoute("/occult-killer")({
   head: () => ({

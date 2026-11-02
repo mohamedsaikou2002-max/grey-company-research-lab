@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Panel, Tag } from "@/components/lab/Shell";
 import { Field, inputCls, download } from "@/components/lab/controls";
 import { REGIONS } from "@/lib/engine/neural";
-import { createNeuralRun } from "@/server/lab.functions";
+import { createNeuralRun } from "@/lib/lab.functions";
 
 export const Route = createFileRoute("/neural-atlas")({
   head: () => ({

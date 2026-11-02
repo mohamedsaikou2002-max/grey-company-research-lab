@@ -23,11 +23,11 @@ int main(int argc,char**argv){
  std::cout<<"hour,stomach,small_intestine,colon,fermentation_substrate,scfa,glucose,vagal,hpa,inflammation\n";
  for(int n=0;n<=int(hours/dt);++n){
  const double t=n*dt;if(n%20==0)std::cout<<std::fixed<<std::setprecision(4)<<t<<','<<s.stomach<<','<<s.small<<','<<s.colon<<','<<s.substrate<<','<<s.scfa<<','<<s.glucose<<','<<s.vagus<<','<<s.hpa<<','<<s.inflammation<<'\n';
- const empty=.34/(1+fat/65)*s.stomach,absorb=.4*s.small,transit=.2*s.small,colon_out=.06*s.colon,ferment=.1*s.substrate*(.6+.4*fermented),sugar_in=clamp(sugar/100)*absorb;
+ const double empty=.34/(1+fat/65)*s.stomach,absorb=.4*s.small,transit=.2*s.small,colon_out=.06*s.colon,ferment=.1*s.substrate*(.6+.4*fermented),sugar_in=clamp(sugar/100)*absorb;
  s.stomach=clamp(s.stomach-dt*empty);s.small=clamp(s.small+dt*(empty-absorb-transit));
  s.colon=clamp(s.colon+dt*(transit-colon_out));s.substrate=clamp(s.substrate+dt*(.12*transit-ferment));
  s.scfa=clamp(s.scfa+dt*(.75*ferment-.06*s.scfa));s.glucose=clamp(s.glucose+dt*(sugar_in-.18*s.glucose));
- const vagal_target=clamp(.2+.3*s.colon+.25*s.scfa+.18*s.glucose);
+ const double vagal_target=clamp(.2+.3*s.colon+.25*s.scfa+.18*s.glucose);
  s.vagus=clamp(s.vagus+dt*.5*(vagal_target-s.vagus));s.hpa=clamp(s.hpa+dt*.08*(stress+.15*s.glucose-s.hpa));
  s.inflammation=clamp(s.inflammation+dt*.025*(stress+.25*sugar/100-.35*s.scfa-s.inflammation));
  }

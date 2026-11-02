@@ -1,0 +1,23 @@
+name: Neural Atlas validation
+on:
+  push:
+    branches: [feature/neural-atlas-personality-cutaway, main]
+  pull_request:
+    branches: [main]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run unit tests
+        run: npm test -- --run
+      - name: Build application
+        run: npm run build
+      - name: Compile gut brain prototype
+        run: g++ -std=c++17 -O2 native/gut_brain.cpp -o /tmp/gut_brain

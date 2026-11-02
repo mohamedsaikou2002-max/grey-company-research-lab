@@ -1,3 +1,4 @@
+import { NeuralScenarioStudio } from "@/components/lab/NeuralScenarioStudio";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/neural-atlas")({
 
 type Res = Awaited<ReturnType<typeof createNeuralRun>>;
 
-function NeuralAtlas() {
+function LegacyEEGWorkbench() {
   const [p, setP] = useState({ seed: 1, sensors: 8, seconds: 2, hz: 128, arousal: 0.5, task: "rest" as "rest" | "attention" | "sleep" });
   const [runs, setRuns] = useState<Res[]>([]);
   const [busy, setBusy] = useState(false);
@@ -61,4 +62,14 @@ function NeuralAtlas() {
       </>}
     </div>
   );
+}
+
+function NeuralAtlas() {
+  return <div className="space-y-6">
+    <NeuralScenarioStudio />
+    <details className="border border-border p-3">
+      <summary className="cursor-pointer text-sm font-semibold">Legacy synthetic EEG sandbox · advanced controls</summary>
+      <div className="mt-3"><LegacyEEGWorkbench /></div>
+    </details>
+  </div>;
 }

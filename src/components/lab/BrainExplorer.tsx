@@ -4,7 +4,7 @@ import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
 import {BRAIN_REGIONS} from '@/lib/engine/anatomy';
 
 /** WebGL educational viewer; approximate markers are not MRI segmentation. */
-export function BrainExplorer({activation}:{activation:Record<string,number>}){
+export function BrainExplorer({activation,delta}:{activation:Record<string,number>;delta?:Record<string,number>}){
  const mount=useRef<HTMLDivElement>(null);
  const [cut,setCut]=useState(true),[shellOpacity,setShellOpacity]=useState(.24);
  const [showMarkers,setShowMarkers]=useState(true),[selected,setSelected]=useState('thalamus');
@@ -58,7 +58,12 @@ export function BrainExplorer({activation}:{activation:Record<string,number>}){
   if(showMarkers)for(const region of BRAIN_REGIONS){
    const power=activation[region.id]??.12;
    const radius=region.system==='CSF'?.012:.024+.035*power;
-   const mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,12,10),new THREE.MeshBasicMaterial({color:region.id===selected?0xffffff:power>.45?0xffffff:0x8d8d8d,transparent:true,opacity:region.id===selected?1:.25+.68*power,depthTest:false}));
+   // Red = below matched no-alcohol simulated reference; green = above it.
+   // Not a moral/clinical judgment and never calibrated from real EEG.
+   const dv=delta?.[region.id];
+   const changed=dv!==undefined&&Math.abs(dv)>0.005;
+   const markerColor=changed?(dv<0?0xff4545:0x32d583):(power>.45?0xffffff:0x8d8d8d);
+   const mesh=new THREE.Mesh(new THREE.SphereGeometry(radius,12,10),new THREE.MeshBasicMaterial({color:region.id===selected?0xffffff:markerColor,transparent:true,opacity:region.id===selected?1:.25+.68*power,depthTest:false}));
    mesh.position.set(...region.position);mesh.userData.region=region.id;mesh.renderOrder=2;group.add(mesh);pickerMeshes.push(mesh);
   }
   let disposed=false;
@@ -85,7 +90,7 @@ export function BrainExplorer({activation}:{activation:Record<string,number>}){
   return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();canvas.removeEventListener('pointerdown',onDown);canvas.removeEventListener('pointermove',onMove);canvas.removeEventListener('pointerup',onUp);canvas.removeEventListener('wheel',onWheel);
    scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}if(o instanceof THREE.Line){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();}});renderer.dispose();if(host.contains(canvas))host.removeChild(canvas);
   };
- },[activation,asset,cut,shellOpacity,showMarkers,selected]);
+ },[activation,delta,asset,cut,shellOpacity,showMarkers,selected]);
  return <div className="space-y-3">
   <div className="flex flex-wrap items-center gap-3 text-xs">
    <label className="flex items-center gap-1"><input type="checkbox" checked={cut} onChange={e=>setCut(e.target.checked)}/> Sagittal cutaway</label>
@@ -100,7 +105,8 @@ export function BrainExplorer({activation}:{activation:Record<string,number>}){
   <select className="w-full border border-border bg-background px-2 py-2 text-sm" aria-label="Select anatomical structure" value={selected} onChange={e=>setSelected(e.target.value)}>
    {BRAIN_REGIONS.map(r=><option key={r.id} value={r.id}>{r.label}</option>)}
   </select>
-  <p className="text-xs">{selectedInfo?.system} · illustrative response index {Math.round(100*(activation[selected]??0))}/100</p>
+  <p className="text-xs">{selectedInfo?.system} · illustrative response index {Math.round(100*(activation[selected]??0))}/100{delta&&selected in delta ? ` · simulated relative change ${(100*(delta[selected]??0)).toFixed(1)} units` : ""}</p>
+  {delta&&<p className="text-[11px] text-muted-foreground"><span className="text-red-400">Red = decreased</span> · <span className="text-green-400">Green = increased</span> against matched synthetic reference. Neither color denotes good or bad brain health.</p>}
   <p className="text-xs text-muted-foreground">{selectedInfo?.note}. Coordinates are approximate, not atlas-registered and cannot reveal real neural firing.</p>
  </div>;
 }

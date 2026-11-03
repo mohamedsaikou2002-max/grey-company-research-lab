@@ -1,0 +1,70 @@
+{
+  "schema_version": "gc-upstreams/1",
+  "captured_on": "2026-11-03",
+  "notes": "Pinned upstream review references only. Packages NOT automatically installed or vendored. Verify exact upstream content/license/dependency security before deployment.",
+  "sources": [
+    {
+      "id": "atlantis",
+      "repository": "https://github.com/Team-Atlanta/aixcc-afc-atlantis",
+      "commit": "8a2b41329515dcdbd201a106cd4f25a7569c1969",
+      "license": "MIT (root license; check subpackages)",
+      "installed": false
+    },
+    {
+      "id": "armory",
+      "repository": "https://github.com/twosixlabs/armory-library",
+      "commit": "f64bcf6d55533bc35848e819312187fe8648a61d",
+      "license": "MIT",
+      "installed": false
+    },
+    {
+      "id": "dragonradio",
+      "repository": "https://github.com/drexelwireless/dragonradio",
+      "commit": "da3808d267b54995a6ef95f317c66d1d1b4f22a9",
+      "license": "MIT",
+      "installed": false
+    },
+    {
+      "id": "macm",
+      "repository": "https://github.com/chathika/MACM",
+      "commit": "508fda5ac65258f6c8137d5938589e77eee3dc29",
+      "license": "GPL-3.0",
+      "installed": false
+    },
+    {
+      "id": "rhpc_smple",
+      "repository": "https://github.com/UCF-SocialSim/RHPC_SMPLE",
+      "commit": "2d580be86656449315fe8699cc7903a4a0350b27",
+      "license": "GPL-3.0 (doc/LICENSE.txt)",
+      "installed": false
+    },
+    {
+      "id": "benchq",
+      "repository": "https://github.com/zapatacomputing/benchq",
+      "commit": "80b8279a4e0553a84203a11c7e25dee684aab74b",
+      "license": "Apache-2.0",
+      "installed": false
+    },
+    {
+      "id": "pyliqtr",
+      "repository": "https://github.com/isi-usc-edu/pyLIQTR",
+      "commit": "0465e1d9ed8ca4fd5ff08df350010ea35ebead66",
+      "license": "REVIEW: README BSD-2-Clause; GitHub API MIT",
+      "installed": false
+    },
+    {
+      "id": "angr",
+      "repository": "https://github.com/angr/angr",
+      "commit": "d816a4fa3bfecf657c01389fdd336fc094c3513e",
+      "license": "BSD-2-Clause",
+      "installed": false
+    },
+    {
+      "id": "openroad",
+      "repository": "https://github.com/The-OpenROAD-Project/OpenROAD",
+      "commit": "1bcacf76a0608884c75d3efa344634f5f265d080",
+      "license": "BSD-3-Clause",
+      "installed": false
+    }
+  ]
+}

@@ -74,13 +74,14 @@ async function pythonUrl() {
 export const engineStatus = createServerFn({ method: "GET" }).handler(async () => {
   const url = await pythonUrl();
   if (!url) return { typescript: true, python: { configured: false, ok: false, detail: "PYTHON_SIM_URL is not set" }, pythonV3: { ok: false, detail: "not configured" } };
+  const serviceHeaders = process.env["NEURO_SERVICE_TOKEN"] ? { Authorization: "Bearer " + process.env["NEURO_SERVICE_TOKEN"] } : {};
   try {
-    const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) });
+    const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000), headers: serviceHeaders });
     // Distinguish the v3 compare endpoint from the legacy Python /api/run.
     let v3 = false;
     if (r.ok) {
       try {
-        const v = await fetch(`${url}/api/occult-killer`, { signal: AbortSignal.timeout(5000) });
+        const v = await fetch(`${url}/api/occult-killer`, { signal: AbortSignal.timeout(5000), headers: serviceHeaders });
         const body = await v.json() as { books?: unknown[] };
         v3 = v.ok && Array.isArray(body.books);
       } catch { /* Legacy Python server or offline: no v3 claim. */ }
@@ -143,7 +144,7 @@ export const createPythonRun = createServerFn({ method: "POST" })
         critical_reflection: t["openness"] ?? 0.5, dissent_safety: t["dissent_safety"] ?? 0.5,
       })),
     };
-    const r = await fetch(`${url}/api/run`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    const r = await fetch(`${url}/api/run`, { method: "POST", headers: { "content-type": "application/json", ...(process.env["NEURO_SERVICE_TOKEN"] ? { Authorization: "Bearer " + process.env["NEURO_SERVICE_TOKEN"] } : {}) }, body: JSON.stringify(payload) });
     const body = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(`Python engine error ${r.status}: ${JSON.stringify(body).slice(0, 300)}`);
     const s = await db();
@@ -204,7 +205,7 @@ export const createPythonV3Compare = createServerFn({ method: "POST" })
        .map(k=>[k,data.individual.traits[k]??0.5])),
    };
    const r=await fetch(url+"/api/occult-killer/compare",{
-     method:"POST",headers:{"content-type":"application/json"},
+     method:"POST",headers:{"content-type":"application/json", ...(process.env["NEURO_SERVICE_TOKEN"] ? {Authorization:"Bearer "+process.env["NEURO_SERVICE_TOKEN"]} : {})},
      signal:AbortSignal.timeout(20000),body:JSON.stringify(payload),
    });
    const result=await r.json() as Record<string,unknown>;

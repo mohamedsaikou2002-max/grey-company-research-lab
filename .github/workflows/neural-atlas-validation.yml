@@ -19,3 +19,18 @@ jobs:
         run: bun run build
       - name: Compile gut brain prototype
         run: g++ -std=c++17 -O2 native/gut_brain.cpp -o /tmp/gut_brain
+      - name: Compile and validate native Wilson-Cowan research model
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra native/neurophysics.cpp -o /tmp/neurophysics
+          /tmp/neurophysics 0.5 0.2 0.5 0.5 2 19 > /tmp/neurophysics.json
+          python3 - <<'PY'
+          import json, math
+          p=json.load(open('/tmp/neurophysics.json'))
+          assert p['model']=='wilson-cowan-regional-v0.1'
+          assert len(p['regions'])==50
+          assert p['label']=='SYNTHETIC / UNCALIBRATED'
+          assert all(math.isfinite(x) for x in p['sensor_proxy'])
+          assert all(0<=v<=1 for v in p['band_shares'].values())
+          assert abs(sum(p['band_shares'].values())-1)<0.02
+          print('Native C++ solver output and source-proxy checks passed')
+          PY

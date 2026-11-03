@@ -73,12 +73,24 @@ async function pythonUrl() {
 
 export const engineStatus = createServerFn({ method: "GET" }).handler(async () => {
   const url = await pythonUrl();
-  if (!url) return { typescript: true, python: { configured: false, ok: false, detail: "PYTHON_SIM_URL is not set" } };
+  if (!url) return { typescript: true, python: { configured: false, ok: false, detail: "PYTHON_SIM_URL is not set" }, pythonV3: { ok: false, detail: "not configured" } };
   try {
     const r = await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(5000) });
-    return { typescript: true, python: { configured: true, ok: r.ok, detail: r.ok ? "reachable" : `HTTP ${r.status}` } };
+    // Distinguish the v3 compare endpoint from the legacy Python /api/run.
+    let v3 = false;
+    if (r.ok) {
+      try {
+        const v = await fetch(`${url}/api/occult-killer`, { signal: AbortSignal.timeout(5000) });
+        const body = await v.json() as { books?: unknown[] };
+        v3 = v.ok && Array.isArray(body.books);
+      } catch { /* Legacy Python server or offline: no v3 claim. */ }
+    }
+    return { typescript: true,
+      python: { configured: true, ok: r.ok, detail: r.ok ? "reachable" : `HTTP ${r.status}` },
+      pythonV3: { ok: v3, detail: v3 ? "occult-killer compare ready" : "v3 compare endpoint not found" },
+    };
   } catch (e) {
-    return { typescript: true, python: { configured: true, ok: false, detail: (e as Error).message } };
+    return { typescript: true, python: { configured: true, ok: false, detail: (e as Error).message }, pythonV3: { ok: false, detail: "offline" } };
   }
 });
 
@@ -142,6 +154,73 @@ export const createPythonRun = createServerFn({ method: "POST" })
     fail(error);
     return { id: row!.id, mapped_payload: payload, result: body };
   });
+
+/** Adapter to the actual Occult Killer v3 Python module supplied separately.
+ * Explicitly shows lossy mappings: v3 only knows 6 group traits and 1–12 rounds,
+ * not the v4.2 fictional adversary, motive distribution, or economic simulations.
+ */
+export const createPythonV3Compare = createServerFn({ method: "POST" })
+ .inputValidator((d: unknown) => RunInputSchema.parse(d))
+ .handler(async ({ data }) => {
+   if ((data.swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test") {
+     throw new Error("Python v3 has no absolute-evil stress-test parameters. Use TypeScript v4.2 or switch to Neutral reference.");
+   }
+   const url=await pythonUrl();
+   if (!url) throw new Error("Python v3 unavailable: set PYTHON_SIM_URL to the hosted Occult Killer v3 server.");
+   const event: Record<string,string>={
+     business_proposal:"ethical_offer",market_entry:"routine",
+     competitor_response:"professional_disagreement",
+     confirmed_report:"documented_issue",unsupported_rumor:"unverified_rumor",
+   };
+   const map: Record<string,string>={
+     transparent_engagement:"respectful_dialogue",
+     evidence_verification:"verify_first",
+     partnership_outreach:"ethical_partnership",
+     market_entry:"quiet_work",
+     patient_observation:"quiet_work",
+     independent_counsel:"independent_mediation",
+     boundary_setting:"firm_boundaries",
+     public_documentation:"lawful_reporting",
+     quiet_disengagement:"firm_boundaries",
+     formal_complaint:"lawful_reporting",
+     community_building:"community_service",
+   };
+   const strategies=[...new Set(data.individual.strategies.map(x=>map[x]).filter(Boolean))];
+   const pick=(k:string)=>data.swarm.traits[k] ?? 0.5;
+   const payload={
+     track:"fraternity", // synthetic category, never attributes real-world conduct.
+     group_overrides:{
+       cohesion:pick("cohesion"),hierarchy:pick("hierarchy"),pluralism:pick("pluralism"),
+       accountability:pick("accountability"),defensiveness:pick("defensiveness"),openness:pick("openness"),
+     },
+     event:event[data.scenario.event_type]??"routine",
+     strategies,
+     trials:Math.max(10,Math.min(500,data.scenario.trials*10)),
+     seed:data.scenario.seed,
+     rounds:Math.max(1,Math.min(12,Math.ceil(data.scenario.months/5))),
+     pressure:data.scenario.external_shock,
+     individual_objective:(data.individual.lawful_objective||"Independent lawful founder").slice(0,500),
+     individual:Object.fromEntries(["patience","humility","verification_discipline","compassion","boundary_discipline"]
+       .map(k=>[k,data.individual.traits[k]??0.5])),
+   };
+   const r=await fetch(url+"/api/occult-killer/compare",{
+     method:"POST",headers:{"content-type":"application/json"},
+     signal:AbortSignal.timeout(20000),body:JSON.stringify(payload),
+   });
+   const result=await r.json() as Record<string,unknown>;
+   if(!r.ok||!Array.isArray(result.strategies))
+     throw new Error("Python v3 compare error: "+JSON.stringify(result).slice(0,250));
+   const s=await db();
+   const {data:row,error}=await s.from("simulation_runs").insert({
+      status:"COMPLETED",engine:"python-v3",model_version:"occult-killer-v3",
+      seed:data.scenario.seed,input_hash:hashInput(payload),
+      input:{payload,original_input:data},summary:{result,warning:"Lossy adapter: motives and absolute-evil mode unsupported; rounds are not months."},
+      frames:null,agents:null,
+   }).select("id").single();
+   fail(error);
+   return {id:row!.id,engine:"python-v3" as const,result,
+     mapping_note:"Python v3 interprets rounds as abstract steps, not months. Group motives and most individual strategy distinctions are not represented. No real-world validity."};
+ });
 
 export const listRuns = createServerFn({ method: "GET" }).handler(async () => {
   const { data, error } = await (await db()).from("simulation_runs").select("id, engine, model_version, seed, input_hash, status, created_at, summary").order("created_at", { ascending: false }).limit(30);

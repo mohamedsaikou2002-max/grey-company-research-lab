@@ -273,7 +273,7 @@ function OccultKiller() {
             </select>
           )}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">Negative visualization assumes maximal willingness to rationalize institutional harm **only in this fictional model**. No real group's intentions, beliefs, or criminality are inferred. The same seed can be rerun with an open-hypotheses counterfactual.</p>
+        <p className="mt-3 text-xs text-muted-foreground">Negative visualization assumes maximal willingness to rationalize institutional harm only in this fictional model. No real group's intentions, beliefs, or criminality are inferred. The same seed can be rerun with an open-hypotheses counterfactual.</p>
       </Panel>
 
       {!run ? (

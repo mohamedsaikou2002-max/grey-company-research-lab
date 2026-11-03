@@ -68,13 +68,10 @@ function OccultKiller() {
   };
   useEffect(() => {
     fStatus().then(setEngine).catch(() => setEngine(null));
-    refresh().then((p) => {
-      const ls = localStorage.getItem("gc-swarm"), li = localStorage.getItem("gc-ind");
-      const s = p.swarms.find((x) => x.id === ls) ?? p.swarms[0];
-      const i = p.individuals.find((x) => x.id === li) ?? p.individuals[0];
-      if (s) { setSwarm(s.config as Swarm); setSwarmId(s.id); }
-      if (i) { setInd(i.config as Individual); setIndId(i.id); }
-    }).catch((e) => toast.error(`Could not load saved profiles: ${e.message}`));
+    // Load the worst-case synthetic preset on each fresh visit; never silently
+    // replace it with a previously saved neutral or historical profile.
+    // Saved profiles remain available through explicit user selection.
+    refresh().catch((e) => toast.error(`Could not list saved profiles: ${e.message}`));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

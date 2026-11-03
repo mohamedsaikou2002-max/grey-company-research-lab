@@ -7,6 +7,7 @@ import { Panel, Tag } from "@/components/lab/Shell";
 import { inputCls, download } from "@/components/lab/controls";
 import { createSession, getMessages, listSessions, sendMessage } from "@/lib/chat.functions";
 import { listRuns, listNeuralRuns } from "@/lib/lab.functions";
+import { ResearchExchangePanel } from "@/components/research/ResearchExchangePanel";
 
 export const Route = createFileRoute("/research-ai")({
   head: () => ({
@@ -60,6 +61,7 @@ function ResearchAI() {
   const shown = sessions.filter((s) => s.scope === scope && s.title.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="grid gap-4 lg:grid-cols-12">
+      <div className="lg:col-span-12"><ResearchExchangePanel context="Cross-project research workspace" /></div>
       <Panel title="Conversations" className="lg:col-span-3">
         <div className="mb-2 flex flex-wrap gap-1">{(["occult_killer", "neural_atlas", "cross_project"] as const).map((s) => <Button key={s} size="sm" variant={scope === s ? "default" : "outline"} onClick={() => { setScope(s); setActive(null); }}>{s.replace(/_/g, " ")}</Button>)}</div>
         <input className={inputCls} placeholder="Search history…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search conversations" />

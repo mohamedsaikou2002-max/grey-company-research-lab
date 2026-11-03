@@ -356,7 +356,7 @@ function SourcesDrawer() {
             <input className={inputCls} placeholder="Search sources…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search sources" />
             {docs.map((d) => (
               <article key={d.id} className="border border-border p-2 text-xs">
-                <div className="flex justify-between gap-2"><strong>{d.title}</strong><Tag>{counts.get(d.id) ? "EXCERPTS INDEXED" : "BIBLIOGRAPHY ONLY"}</Tag></div>
+                <div className="flex justify-between gap-2"><strong>{d.title}</strong><Tag>{counts.get(d.id) ? (d.origin === "user_synthesis" ? "RESEARCH NOTES INDEXED" : "EXCERPTS INDEXED") : "BIBLIOGRAPHY ONLY"}</Tag></div>
                 <div className="font-mono text-[10px] text-muted-foreground">{d.id} · {d.evidence_tier} · {d.verification}</div>
                 <p className="mt-1 text-muted-foreground">{d.summary}</p>
                 {d.url && <a className="underline" href={d.url} target="_blank" rel="noreferrer">source</a>}

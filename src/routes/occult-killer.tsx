@@ -11,6 +11,7 @@ import { Panel, Tag } from "@/components/lab/Shell";
 import { WeightEditor, Field, inputCls, download } from "@/components/lab/controls";
 import { SwarmNetwork, LEGEND } from "@/components/lab/SwarmNetwork";
 import { defaultInput } from "@/lib/engine/defaults";
+import { deriveNarrativeSignals } from "@/lib/engine/negativeVisualization";
 import { INDIVIDUAL_STRATEGIES, RESPONSES, type RunInput, type RunResult, type Swarm, type Individual, type Scenario } from "@/lib/engine/swarm";
 import { createRun, createPythonRun, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/lib/lab.functions";
 
@@ -37,7 +38,7 @@ const QURAN = [
   ["18:103–104", "Misjudging one's own deeds"],
   ["2:102", "Rumor, sorcery claims and harm"],
 ];
-const DASH = ["", "6 3", "2 3", "8 2 2 2", "1 4", "10 4", "4 4", "3 1", "12 3"];
+const DASH = ["", "6 3", "2 3", "8 2 2 2", "1 4", "10 4", "4 4", "3 1", "12 3", "3 5"];
 
 type Profiles = Awaited<ReturnType<typeof listProfiles>>;
 
@@ -50,7 +51,7 @@ function OccultKiller() {
   const [profiles, setProfiles] = useState<Profiles | null>(null);
   const [run, setRun] = useState<(RunResult & { id: string }) | null>(null);
   const [cf, setCf] = useState<(RunResult & { id: string }) | null>(null);
-  const [cfVar, setCfVar] = useState<"safeguards" | "accountability" | "competition">("safeguards");
+  const [cfVar, setCfVar] = useState<"safeguards" | "accountability" | "competition" | "baseline">("baseline");
   const [month, setMonth] = useState(0);
   const [busy, setBusy] = useState(false);
   const [sel, setSel] = useState<number | null>(null);
@@ -93,6 +94,7 @@ function OccultKiller() {
       await persist();
       const input: RunInput = { swarm, individual: ind, scenario: sc };
       if (useEngine === "python") {
+        if (sc.baseline_mode !== "open_hypotheses") throw new Error("The Python v2 adapter does not implement negative visualization. Select the built-in TypeScript engine.");
         const r = await fPy({ data: input });
         toast.success(`Python v2 run saved (${r.id.slice(0, 8)}). Aggregate output only.`);
         console.info("python v2 result", r);
@@ -108,6 +110,7 @@ function OccultKiller() {
     setBusy(true);
     try {
       const alt: RunInput = structuredClone({ swarm, individual: ind, scenario: sc });
+      if (cfVar === "baseline") alt.scenario.baseline_mode = "open_hypotheses";
       if (cfVar === "safeguards") alt.scenario.safeguards = Math.min(1, sc.safeguards + 0.3);
       if (cfVar === "accountability") alt.swarm.traits["accountability"] = Math.min(1, (swarm.traits["accountability"] ?? 0.5) + 0.3);
       if (cfVar === "competition") alt.swarm.motives["financial_gain"] = Math.min(1, (swarm.motives["financial_gain"] ?? 0) + 0.3);
@@ -116,13 +119,14 @@ function OccultKiller() {
   };
 
   const frame = run?.frames[Math.min(month, (run?.frames.length ?? 1) - 1)];
+  const narrativeSignals = useMemo(() => deriveNarrativeSignals(sc.narrative, sc.event_type), [sc.narrative, sc.event_type]);
   const timeline = useMemo(() => run?.frames.map((f) => ({ month: f.month, ...f.responses, cohesion: f.cohesion, accountability: f.accountability, ...f.indices })) ?? [], [run]);
   const selAgent = run?.agents.find((a) => a.id === sel);
 
   const exportCsv = () => {
     if (!run) return;
-    const head = ["month", ...RESPONSES, "cohesion", "accountability", "autonomy", "safety", "integrity", "evidence"];
-    const rows = run.frames.map((f) => [f.month, ...RESPONSES.map((r) => f.responses[r]), f.cohesion, f.accountability, f.indices.autonomy, f.indices.safety, f.indices.integrity, f.indices.evidence].join(","));
+    const head = ["month", ...RESPONSES, "cohesion", "accountability", "adversarial_intensity", "autonomy", "safety", "integrity", "evidence"];
+    const rows = run.frames.map((f) => [f.month, ...RESPONSES.map((r) => f.responses[r]), f.cohesion, f.accountability, f.adversarial_intensity, f.indices.autonomy, f.indices.safety, f.indices.integrity, f.indices.evidence].join(","));
     download(`run-${run.id.slice(0, 8)}.csv`, [head.join(","), ...rows].join("\n"), "text/csv");
   };
 
@@ -135,7 +139,8 @@ function OccultKiller() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Tag>model {run?.model_version ?? "gc-swarm-ts-4.1.0"}</Tag>
+        <Tag>model {run?.model_version ?? "gc-swarm-ts-4.2.0-negviz"}</Tag>
+        <Tag>DEFAULT: FICTIONAL NEGATIVE VISUALIZATION</Tag>
         <Tag>python v2: {engine ? (engine.python.ok ? "connected" : engine.python.detail) : "checking…"}</Tag>
         <SourcesDrawer />
       </div>
@@ -234,8 +239,11 @@ function OccultKiller() {
       {/* SCENARIO ENGINE */}
       <Panel title="Scenario & interaction engine">
         <div className="grid gap-3 md:grid-cols-4">
-          <Field label="Narrative"><textarea className={inputCls} rows={3} value={sc.narrative} onChange={(e) => setSc({ ...sc, narrative: e.target.value })} /></Field>
+          <Field label="Narrative (fictional scenario)"><textarea className={inputCls} rows={3} value={sc.narrative} onChange={(e) => setSc({ ...sc, narrative: e.target.value })} />
+            <p className="mt-1 text-[11px] text-muted-foreground">Heuristic cues: {narrativeSignals.matched_cues.join(", ") || "none detected"}. These are scenario assumptions, not evidence of anyone's intent.</p>
+          </Field>
           <div className="space-y-2">
+            <Field label="Baseline personality"><select className={inputCls} value={sc.baseline_mode ?? "negative_visualization"} onChange={(e) => setSc({ ...sc, baseline_mode: e.target.value as Scenario["baseline_mode"] })}><option value="negative_visualization">Absolute-evil assumption · fictional stress test</option><option value="open_hypotheses">Open hypotheses · neutral counterfactual</option></select></Field>
             <Field label="Event type"><select className={inputCls} value={sc.event_type} onChange={(e) => setSc({ ...sc, event_type: e.target.value as Scenario["event_type"] })}>{["business_proposal", "market_entry", "competitor_response", "confirmed_report", "unsupported_rumor"].map((x) => <option key={x}>{x}</option>)}</select></Field>
             <Field label="Evidence tier"><select className={inputCls} value={sc.evidence_tier} onChange={(e) => setSc({ ...sc, evidence_tier: e.target.value as Scenario["evidence_tier"] })}>{["documented", "corroborated", "single_testimony", "rumor"].map((x) => <option key={x}>{x}</option>)}</select></Field>
           </div>
@@ -247,7 +255,7 @@ function OccultKiller() {
           <div className="space-y-2">
             <Field label={`Safeguards ${sc.safeguards.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.safeguards]} onValueChange={(vals) => setSc({ ...sc, safeguards: vals[0] ?? sc.safeguards })} /></Field>
             <Field label={`External shock ${sc.external_shock.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.external_shock]} onValueChange={(vals) => setSc({ ...sc, external_shock: vals[0] ?? sc.external_shock })} /></Field>
-            <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python")}><option value="typescript">TypeScript v4 (built-in)</option><option value="python" disabled={!engine?.python.ok}>Python v2 {engine?.python.ok ? "" : "(not connected)"}</option></select></Field>
+            <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python")}><option value="typescript">TypeScript v4.2 negative visualization</option><option value="python" disabled={!engine?.python.ok || sc.baseline_mode !== "open_hypotheses"}>Python v2 {engine?.python.ok ? "" : "(not connected)"}</option></select></Field>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -265,6 +273,7 @@ function OccultKiller() {
             </select>
           )}
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">Negative visualization assumes maximal willingness to rationalize institutional harm only in this fictional model. No real group's intentions, beliefs, or criminality are inferred. The same seed can be rerun with an open-hypotheses counterfactual.</p>
       </Panel>
 
       {!run ? (
@@ -294,7 +303,7 @@ function OccultKiller() {
 
           <Panel title="Replay & response distribution" actions={<Tag>SYNTHETIC / UNVALIDATED · utility-derived shares, not calibrated probabilities</Tag>}>
             <label className="flex items-center gap-3 text-xs">Period <Slider className="flex-1" min={0} max={run.frames.length - 1} step={1} value={[month]} onValueChange={(vals) => setMonth(vals[0] ?? month)} aria-label="Month scrubber" /> <span className="font-mono">{frame?.month}/{run.frames.length}</span></label>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-9">
+            <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-10">
               {RESPONSES.map((r) => (
                 <div key={r} className="border border-border p-2">
                   <div className="text-[10px] uppercase text-muted-foreground">{r.replace(/_/g, " ")}</div>
@@ -303,13 +312,14 @@ function OccultKiller() {
                 </div>
               ))}
             </div>
-            <div className="mt-2 font-mono text-[11px] text-muted-foreground">run {run.id.slice(0, 8)} · seed {run.seed} · input hash {run.input_hash} · {run.summary.trials} trials · evidence tier {sc.evidence_tier}</div>
+            <div className="mt-2 font-mono text-[11px] text-muted-foreground">run {run.id.slice(0, 8)} · seed {run.seed} · input hash {run.input_hash} · {run.summary.trials} trials · assumption {run.summary.baseline_mode} · evidence tier {sc.evidence_tier}</div>
+            <p className="text-xs text-muted-foreground">Scenario parser: {run.summary.narrative_signals.matched_cues.join(", ") || "no lexical cues"}. Assumed adversarial intensity at month {frame?.month}: {((frame?.adversarial_intensity ?? 0) * 100).toFixed(0)}%. This is an internal model state, not a probability that a real group is malicious.</p>
             <div className="mt-3 h-64"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={10} /><YAxis stroke="var(--muted-foreground)" fontSize={10} /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{RESPONSES.map((r, i) => <Line key={r} dataKey={r} dot={false} stroke={i % 2 ? "var(--muted-foreground)" : "var(--foreground)"} strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
           </Panel>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Panel title="Cohesion, accountability & indices">
-              <div className="h-56"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" fontSize={10} stroke="var(--muted-foreground)" /><YAxis domain={[0, 1]} fontSize={10} stroke="var(--muted-foreground)" /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{["cohesion", "accountability", "autonomy", "safety", "integrity", "evidence"].map((k, i) => <Line key={k} dataKey={k} dot={false} stroke="var(--foreground)" strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
+              <div className="h-56"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" fontSize={10} stroke="var(--muted-foreground)" /><YAxis domain={[0, 1]} fontSize={10} stroke="var(--muted-foreground)" /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{["cohesion", "accountability", "adversarial_intensity", "autonomy", "safety", "integrity", "evidence"].map((k, i) => <Line key={k} dataKey={k} dot={false} stroke="var(--foreground)" strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
               <p className="text-[11px] text-muted-foreground">Economic outputs are not shown: no economic model exists yet.</p>
             </Panel>
             <Panel title="Motive weights: swarm vs protagonist">
@@ -319,7 +329,7 @@ function OccultKiller() {
 
           <Panel title="What changed? (matched-seed counterfactual)" actions={
             <div className="flex gap-2">
-              <select aria-label="Counterfactual variable" className={`${inputCls} py-0.5 text-xs`} value={cfVar} onChange={(e) => setCfVar(e.target.value as typeof cfVar)}><option value="safeguards">Safeguards +0.3</option><option value="accountability">Swarm accountability +0.3</option><option value="competition">Financial-gain motive +0.3</option></select>
+              <select aria-label="Counterfactual variable" className={`${inputCls} py-0.5 text-xs`} value={cfVar} onChange={(e) => setCfVar(e.target.value as typeof cfVar)}><option value="baseline">Open-hypotheses counterfactual</option><option value="safeguards">Safeguards +0.3</option><option value="accountability">Swarm accountability +0.3</option><option value="competition">Financial-gain motive +0.3</option></select>
               <Button size="sm" onClick={doCompare} disabled={busy}>COMPARE COUNTERFACTUAL</Button>
             </div>
           }>

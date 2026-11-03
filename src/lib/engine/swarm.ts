@@ -5,8 +5,9 @@
  * synthetic utility-derived shares, not empirically calibrated probabilities.
  */
 import { z } from "zod";
+import { deriveNarrativeSignals, type NarrativeSignals } from "./negativeVisualization";
 
-export const MODEL_VERSION = "gc-swarm-ts-4.1.0";
+export const MODEL_VERSION = "gc-swarm-ts-4.2.0-negviz";
 
 export const RESPONSES = [
   "no_response",
@@ -15,6 +16,7 @@ export const RESPONSES = [
   "dialogue",
   "due_diligence",
   "scrutiny",
+  "coercive_pressure", // Abstract institutional pressure, not an operational crime model.
   "disengagement",
   "internal_review",
   "accountability",
@@ -129,6 +131,7 @@ export const ScenarioSchema = z.object({
   trials: z.number().int().min(1).max(50),
   safeguards: unit,
   external_shock: unit,
+  baseline_mode: z.enum(["negative_visualization", "open_hypotheses"]).default("negative_visualization"),
 });
 export type Scenario = z.infer<typeof ScenarioSchema>;
 
@@ -181,6 +184,7 @@ export type Frame = {
   responses: Record<Response, number>;
   cohesion: number;
   accountability: number;
+  adversarial_intensity: number; // Assumption state, NOT an inferred motive or probability of wrongdoing.
   indices: { autonomy: number; safety: number; integrity: number; evidence: number };
 };
 export type AgentState = {
@@ -197,7 +201,7 @@ function utilities(
   st: Record<string, number>,
   t: Record<string, number>,
   ind: { openness: number; transparency: number; collab: number; market: number },
-  ctx: { evidence: number; safeguards: number; shock: number; rumor: boolean },
+  ctx: { evidence: number; safeguards: number; shock: number; rumor: boolean; adversarial: number; narrative: NarrativeSignals },
   disengage: number,
 ): { u: Record<Response, number>; parts: Record<string, number> } {
   const g = (k: string) => t[k] ?? 0.5;
@@ -211,6 +215,7 @@ function utilities(
     "no special interest": m["no_special_interest"] ?? 0,
     "evidence strength": ctx.evidence,
     oversight: g("accountability") * ctx.safeguards,
+    "assumed worst-case incentive": ctx.adversarial,
   };
   const u: Record<Response, number> = {
     no_response: 1.4 * parts["no special interest"] + 0.4 * (1 - ctx.evidence) + 0.3 * ctx.shock,
@@ -219,12 +224,29 @@ function utilities(
     dialogue: 0.9 * g("openness") + 0.6 * g("pluralism") + 0.5 * ind.openness,
     due_diligence: 1.1 * parts["procedural duty"] + 0.8 * (st["due_diligence"] ?? 0) + 0.5 * ctx.evidence,
     scrutiny: 0.9 * parts["prestige/status"] + 0.8 * g("reputational_pressure") * (ctx.rumor ? 0.6 : 1) + 0.4 * g("defensiveness"),
+    coercive_pressure: 0.05, // Controlled solely by hypothetical interaction and safeguards below.
     disengagement: 0.8 * (st["disengagement"] ?? 0) + 0.6 * parts["self-preservation"] + 0.3 * ctx.shock,
     internal_review: 0.9 * g("integrity") * ctx.evidence + 0.8 * (st["internal_deliberation"] ?? 0) + 0.5 * g("dissent_safety"),
     accountability:
       1.3 * parts.oversight * ctx.evidence + 0.9 * parts["justice/compassion"] * ctx.evidence + 0.6 * (st["oversight_remediation"] ?? 0) - 0.9 * g("defensiveness") * disengage,
   };
-  return { u, parts };
+  // Negative visualization is a deliberately pessimistic ASSUMPTION. Actual organizational
+  // intentions and criminal activity cannot be inferred from narrative keywords, identity,
+  // social membership, or a religious tradition. No perpetration tactics are modeled.
+  const n = ctx.narrative;
+  const salience = clip((1 - n.separation) * (0.15 + 0.35 * n.market + 0.3 * n.engagement + 0.2 * n.conflict + 0.15 * n.oversight));
+  const assumedPressure = ctx.adversarial * salience * (1 - 0.7 * ctx.safeguards) * (1 - 0.35 * n.oversight);
+  u.coercive_pressure += 3.5 * assumedPressure + 0.25 * g("hierarchy") * assumedPressure;
+  u.scrutiny += 0.7 * assumedPressure * (n.market + n.conflict);
+  u.routine_competition += 0.65 * n.market * salience;
+  u.collaboration += 0.6 * n.engagement * (1 - 0.5 * ctx.adversarial);
+  u.due_diligence += 0.4 * n.oversight;
+  u.internal_review += 0.85 * n.oversight * ctx.evidence;
+  u.accountability += 1.1 * n.oversight * ctx.safeguards * ctx.evidence;
+  u.no_response += 1.5 * n.separation + 0.4 * (1 - salience);
+  // Rumors are signals of uncertain information, never evidence of coordinated harm.
+  if (ctx.rumor || n.allegation > 0.5) u.accountability += 0.25 * ctx.safeguards;
+  return { u, parts: { ...parts, "fictional interaction salience": salience, "assumed coercive pressure": assumedPressure } };
 }
 
 export type RunResult = {
@@ -234,7 +256,7 @@ export type RunResult = {
   seed: number;
   frames: Frame[];
   agents: AgentState[];
-  summary: { final: Record<Response, number>; label: "SYNTHETIC / UNVALIDATED"; trials: number; ci90: Record<Response, [number, number]> };
+  summary: { final: Record<Response, number>; label: "SYNTHETIC / UNVALIDATED"; trials: number; ci90: Record<Response, [number, number]>; baseline_mode: "negative_visualization" | "open_hypotheses"; narrative_signals: NarrativeSignals; assumption_note: string };
 };
 
 function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
@@ -252,6 +274,8 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
   };
   const evidence = EVIDENCE_WEIGHT[scenario.evidence_tier];
   const rumor = scenario.evidence_tier === "rumor" || scenario.event_type === "unsupported_rumor";
+  const narrativeSignals = deriveNarrativeSignals(scenario.narrative, scenario.event_type);
+  let adversarial = scenario.baseline_mode === "negative_visualization" ? 1 : 0.15;
   const roles = swarm.roles;
   const rs = roles.reduce((a, r) => a + r.share, 0) || 1;
   const agents = Array.from({ length: scenario.agents }, (_, i) => {
@@ -267,7 +291,7 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
     const counts = Object.fromEntries(RESPONSES.map((r) => [r, 0])) as Record<Response, number>;
     const shock = scenario.external_shock * (rng() < 0.15 ? 1 : 0.2);
     for (const a of agents) {
-      const res = utilities(m, st, { ...a.traits, accountability: acc, cohesion }, ind, { evidence, safeguards: scenario.safeguards, shock, rumor }, a.d);
+      const res = utilities(m, st, { ...a.traits, accountability: acc, cohesion }, ind, { evidence, safeguards: scenario.safeguards, shock, rumor, adversarial, narrative: narrativeSignals }, a.d);
       const logits = RESPONSES.map((r) => res.u[r] * 2 + a.re * (r === "no_response" ? 1 : 0) + 0.35 * gauss(rng));
       const mx = Math.max(...logits);
       const ex = logits.map((l) => Math.exp(l - mx));
@@ -277,7 +301,7 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
       a.state = RESPONSES[idx] ?? "no_response";
       a.last = res;
       counts[a.state]++;
-      const bad = a.state === "disengagement" || a.state === "scrutiny";
+      const bad = a.state === "disengagement" || a.state === "scrutiny" || a.state === "coercive_pressure";
       a.d = clip(a.d + 0.04 * (bad ? 1 : 0) - 0.05 * (a.state === "accountability" || a.state === "internal_review" ? 1 : 0) - 0.02 * scenario.safeguards);
     }
     const n = agents.length;
@@ -285,14 +309,20 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
     acc = clip(acc + 0.05 * (share("accountability") + share("internal_review")) - 0.03 * share("disengagement") + 0.01 * (scenario.safeguards - 0.5));
     cohesion = clip(cohesion + 0.03 * (share("collaboration") + share("dialogue")) - 0.03 * share("scrutiny") - 0.02 * shock);
     const meanD = agents.reduce((p, a) => p + a.d, 0) / n;
+    // Consequences and countervailing oversight can reduce (but not prove or diagnose)
+    // the assumed adversarial state; without them the worst-case prior may persist.
+    const correction = 0.10 * narrativeSignals.oversight * scenario.safeguards + 0.05 * share("accountability");
+    const entrenchment = 0.02 * share("coercive_pressure") * (1 - scenario.safeguards);
+    adversarial = clip(adversarial + entrenchment - correction);
     frames.push({
       month,
       responses: Object.fromEntries(RESPONSES.map((r) => [r, +(counts[r] / n).toFixed(4)])) as Record<Response, number>,
       cohesion: +cohesion.toFixed(4),
       accountability: +acc.toFixed(4),
+      adversarial_intensity: +adversarial.toFixed(4),
       indices: {
         autonomy: +clip((individual.motives["autonomy"] ?? 0.3) * 0.5 + 0.5 * (1 - share("scrutiny") - share("disengagement"))).toFixed(4),
-        safety: +clip(1 - share("scrutiny") * (1 - scenario.safeguards) - 0.3 * shock).toFixed(4),
+        safety: +clip(1 - (share("scrutiny") + share("coercive_pressure")) * (1 - scenario.safeguards) - 0.3 * shock).toFixed(4),
         integrity: +clip(1 - meanD).toFixed(4),
         evidence: evidence,
       },
@@ -325,6 +355,7 @@ export function runSimulation(raw: RunInput): RunResult {
       responses: Object.fromEntries(RESPONSES.map((r) => [r, avg((fr) => fr.responses[r])])) as Record<Response, number>,
       cohesion: avg((fr) => fr.cohesion),
       accountability: avg((fr) => fr.accountability),
+      adversarial_intensity: avg((fr) => fr.adversarial_intensity),
       indices: {
         autonomy: avg((fr) => fr.indices.autonomy),
         safety: avg((fr) => fr.indices.safety),
@@ -347,6 +378,9 @@ export function runSimulation(raw: RunInput): RunResult {
     seed: scenario.seed,
     frames,
     agents: trials[0]?.agents ?? [],
-    summary: { final: frames[frames.length - 1]?.responses ?? ZERO, label: "SYNTHETIC / UNVALIDATED", trials: scenario.trials, ci90 },
+    summary: { final: frames[frames.length - 1]?.responses ?? ZERO, label: "SYNTHETIC / UNVALIDATED", trials: scenario.trials, ci90,
+      baseline_mode: scenario.baseline_mode, narrative_signals: deriveNarrativeSignals(scenario.narrative, scenario.event_type),
+      assumption_note: "Worst-case baseline is an intentionally pessimistic fictional assumption, not an assertion about a real group or prediction of its acts.",
+    },
   };
 }

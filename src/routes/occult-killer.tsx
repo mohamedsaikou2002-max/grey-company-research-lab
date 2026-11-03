@@ -93,6 +93,7 @@ function OccultKiller() {
       await persist();
       const input: RunInput = { swarm, individual: ind, scenario: sc };
       if (useEngine === "python") {
+        if ((swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test") throw new Error("The legacy Python v2 adapter does not support the adversarial baseline; select the TypeScript engine.");
         const r = await fPy({ data: input });
         toast.success(`Python v2 run saved (${r.id.slice(0, 8)}). Aggregate output only.`);
         console.info("python v2 result", r);
@@ -116,13 +117,13 @@ function OccultKiller() {
   };
 
   const frame = run?.frames[Math.min(month, (run?.frames.length ?? 1) - 1)];
-  const timeline = useMemo(() => run?.frames.map((f) => ({ month: f.month, ...f.responses, cohesion: f.cohesion, accountability: f.accountability, ...f.indices })) ?? [], [run]);
+  const timeline = useMemo(() => run?.frames.map((f) => ({ month: f.month, ...f.responses, cohesion: f.cohesion, accountability: f.accountability, hostility_index: f.hostility_index, mean_disengagement: f.mean_disengagement, ...f.indices })) ?? [], [run]);
   const selAgent = run?.agents.find((a) => a.id === sel);
 
   const exportCsv = () => {
     if (!run) return;
-    const head = ["month", ...RESPONSES, "cohesion", "accountability", "autonomy", "safety", "integrity", "evidence"];
-    const rows = run.frames.map((f) => [f.month, ...RESPONSES.map((r) => f.responses[r]), f.cohesion, f.accountability, f.indices.autonomy, f.indices.safety, f.indices.integrity, f.indices.evidence].join(","));
+    const head = ["month", ...RESPONSES, "cohesion", "accountability", "hostility_index", "mean_disengagement", "autonomy", "safety", "integrity", "evidence"];
+    const rows = run.frames.map((f) => [f.month, ...RESPONSES.map((r) => f.responses[r]), f.cohesion, f.accountability, f.hostility_index, f.mean_disengagement, f.indices.autonomy, f.indices.safety, f.indices.integrity, f.indices.evidence].join(","));
     download(`run-${run.id.slice(0, 8)}.csv`, [head.join(","), ...rows].join("\n"), "text/csv");
   };
 
@@ -135,7 +136,9 @@ function OccultKiller() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Tag>model {run?.model_version ?? "gc-swarm-ts-4.1.0"}</Tag>
+        <Tag>model {run?.model_version ?? "gc-swarm-ts-4.2.0"}</Tag>
+        <Tag>{swarm.baseline_mode === "neutral_reference" ? "NEUTRAL REFERENCE" : "FICTIONAL ABSOLUTE-EVIL STRESS TEST"}</Tag>
+        <Button size="sm" variant="outline" onClick={() => { setSwarm(structuredClone(defaultInput.swarm)); setSwarmId(null); setRun(null); setCf(null); }}>Load worst-case preset</Button>
         <Tag>python v2: {engine ? (engine.python.ok ? "connected" : engine.python.detail) : "checking…"}</Tag>
         <SourcesDrawer />
       </div>
@@ -160,6 +163,13 @@ function OccultKiller() {
                 <TabsTrigger value="traits">Traits</TabsTrigger>
               </TabsList>
               <TabsContent value="identity" className="space-y-3">
+                <Field label="Baseline assumption (fictional only)">
+                  <select className={inputCls} aria-label="Simulation assumption mode" value={swarm.baseline_mode ?? "absolute_evil_stress_test"} onChange={(e) => setSwarm({ ...swarm, baseline_mode: e.target.value as Swarm["baseline_mode"] })}>
+                    <option value="absolute_evil_stress_test">Absolute evil — worst-case fictional stress test</option>
+                    <option value="neutral_reference">Neutral reference — negative control</option>
+                  </select>
+                </Field>
+                <p className="text-[11px] text-muted-foreground">Worst-case means deliberately pessimistic synthetic assumptions, not proof that any real group is malicious. Neutral mode is retained to reveal assumption-driven conclusions.</p>
                 <Field label="Title"><input className={inputCls} value={swarm.title} maxLength={80} onChange={(e) => setSwarm({ ...swarm, title: e.target.value })} /></Field>
                 <Field label="Description"><textarea className={inputCls} rows={2} value={swarm.description} onChange={(e) => setSwarm({ ...swarm, description: e.target.value })} /></Field>
                 <Field label="Institutional type"><input className={inputCls} value={swarm.institutional_type} onChange={(e) => setSwarm({ ...swarm, institutional_type: e.target.value })} /></Field>
@@ -247,7 +257,7 @@ function OccultKiller() {
           <div className="space-y-2">
             <Field label={`Safeguards ${sc.safeguards.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.safeguards]} onValueChange={(vals) => setSc({ ...sc, safeguards: vals[0] ?? sc.safeguards })} /></Field>
             <Field label={`External shock ${sc.external_shock.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.external_shock]} onValueChange={(vals) => setSc({ ...sc, external_shock: vals[0] ?? sc.external_shock })} /></Field>
-            <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python")}><option value="typescript">TypeScript v4 (built-in)</option><option value="python" disabled={!engine?.python.ok}>Python v2 {engine?.python.ok ? "" : "(not connected)"}</option></select></Field>
+            <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python")}><option value="typescript">TypeScript v4 (built-in)</option><option value="python" disabled={!engine?.python.ok || (swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test"}>Python v2 {engine?.python.ok ? "(neutral only)" : "(not connected)"}</option></select></Field>
           </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -304,12 +314,14 @@ function OccultKiller() {
               ))}
             </div>
             <div className="mt-2 font-mono text-[11px] text-muted-foreground">run {run.id.slice(0, 8)} · seed {run.seed} · input hash {run.input_hash} · {run.summary.trials} trials · evidence tier {sc.evidence_tier}</div>
-            <div className="mt-3 h-64"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={10} /><YAxis stroke="var(--muted-foreground)" fontSize={10} /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{RESPONSES.map((r, i) => <Line key={r} dataKey={r} dot={false} stroke={i % 2 ? "var(--muted-foreground)" : "var(--foreground)"} strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
+            <p className="mt-1 text-[11px] text-muted-foreground">{run.summary.warning}</p>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs"><Tag>Narrative features (lexical, not verified facts)</Tag>{Object.entries(run.summary.narrative_signals).filter(([, on]) => on).map(([k]) => <Tag key={k}>{k.replace(/_/g, " ")}</Tag>)}</div>
+            <div className="mt-3 h-64"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" stroke="var(--muted-foreground)" fontSize={10} /><YAxis stroke="var(--muted-foreground)" fontSize={10} /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{RESPONSES.map((r, i) => <Line key={r} dataKey={r} dot={false} stroke={i % 2 ? "var(--muted-foreground)" : "var(--foreground)"} strokeDasharray={DASH[i % DASH.length]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
           </Panel>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Panel title="Cohesion, accountability & indices">
-              <div className="h-56"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" fontSize={10} stroke="var(--muted-foreground)" /><YAxis domain={[0, 1]} fontSize={10} stroke="var(--muted-foreground)" /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{["cohesion", "accountability", "autonomy", "safety", "integrity", "evidence"].map((k, i) => <Line key={k} dataKey={k} dot={false} stroke="var(--foreground)" strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
+              <div className="h-56"><ResponsiveContainer><LineChart data={timeline}><CartesianGrid stroke="var(--border)" strokeDasharray="2 4" /><XAxis dataKey="month" fontSize={10} stroke="var(--muted-foreground)" /><YAxis domain={[0, 1]} fontSize={10} stroke="var(--muted-foreground)" /><Tooltip contentStyle={{ background: "var(--card)", border: "1px solid var(--border)" }} /><Legend wrapperStyle={{ fontSize: 10 }} />{["cohesion", "accountability", "hostility_index", "mean_disengagement", "autonomy", "safety", "integrity", "evidence"].map((k, i) => <Line key={k} dataKey={k} dot={false} stroke="var(--foreground)" strokeDasharray={DASH[i]} isAnimationActive={false} />)}</LineChart></ResponsiveContainer></div>
               <p className="text-[11px] text-muted-foreground">Economic outputs are not shown: no economic model exists yet.</p>
             </Panel>
             <Panel title="Motive weights: swarm vs protagonist">

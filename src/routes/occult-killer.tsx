@@ -352,11 +352,11 @@ function SourcesDrawer() {
         <SheetHeader><SheetTitle>Research Sources</SheetTitle></SheetHeader>
         {!data ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : (
           <div className="space-y-3 p-4">
-            <p className="font-mono text-[11px] text-muted-foreground">{data.documents.length} source records · {counts.size} with excerpts · {data.excerpts.length} excerpts indexed. v3's 37-record bibliography was not supplied; these 12 come from the v2 archive.</p>
+            <p className="font-mono text-[11px] text-muted-foreground">{data.documents.length} source records · {counts.size} with excerpts · {data.excerpts.length} excerpts indexed. Bibliography records contain metadata only; source-specific text must be separately and lawfully indexed.</p>
             <input className={inputCls} placeholder="Search sources…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search sources" />
             {docs.map((d) => (
               <article key={d.id} className="border border-border p-2 text-xs">
-                <div className="flex justify-between gap-2"><strong>{d.title}</strong><Tag>{counts.get(d.id) ? "EXCERPTS INDEXED" : "BIBLIOGRAPHY ONLY"}</Tag></div>
+                <div className="flex justify-between gap-2"><strong>{d.title}</strong><Tag>{counts.get(d.id) ? (d.origin === "user_synthesis" ? "RESEARCH NOTES INDEXED" : "EXCERPTS INDEXED") : "BIBLIOGRAPHY ONLY"}</Tag></div>
                 <div className="font-mono text-[10px] text-muted-foreground">{d.id} · {d.evidence_tier} · {d.verification}</div>
                 <p className="mt-1 text-muted-foreground">{d.summary}</p>
                 {d.url && <a className="underline" href={d.url} target="_blank" rel="noreferrer">source</a>}

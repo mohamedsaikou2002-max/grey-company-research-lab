@@ -320,11 +320,22 @@ function runOnce(input: RunInput, seed: number, keepAgents: boolean) {
     const counts = Object.fromEntries(RESPONSES.map((r) => [r, 0])) as Record<Response, number>;
     const shock = scenario.external_shock * (rng() < 0.15 ? 1 : 0.2);
     for (const a of agents) {
+      // Explicitly unrelated people cannot be assigned a directed response.
+      // This negative control is stronger than lowering a utility, because a
+      // softmax still gives zero-utility states nonzero selection probability.
+      if (narrative.explicit_no_contact) {
+        a.state = "no_response";
+        a.last = null;
+        counts.no_response++;
+        continue;
+      }
       const res = utilities(m, st, { ...a.traits, accountability: acc, cohesion }, ind, {
         evidence, safeguards: scenario.safeguards, shock, rumor, adversarial,
         contact, conflict, oversight, hostility, authorityClaim: narrative.authority_claim,
       }, a.d);
-      const logits = RESPONSES.map((r) => res.u[r] * 2 + a.re * (r === "no_response" ? 1 : 0) + 0.35 * gauss(rng));
+      const logits = RESPONSES.map((r) =>
+        (!adversarial && (r === "undue_pressure" || r === "improper_gatekeeping")) ? -1e6 :
+        res.u[r] * 2 + a.re * (r === "no_response" ? 1 : 0) + 0.35 * gauss(rng));
       const mx = Math.max(...logits);
       const ex = logits.map((l) => Math.exp(l - mx));
       const s = ex.reduce((p, q) => p + q, 0);

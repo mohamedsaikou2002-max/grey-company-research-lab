@@ -12,6 +12,8 @@ const SYSTEM = `You are the Grey Company research assistant. Rules:
 - If a source is BIBLIOGRAPHY ONLY, say no text from it is indexed; do not describe its contents beyond the stored summary.
 - Simulation results are SYNTHETIC / UNVALIDATED. Never infer real-world targeting, supernatural activity, or hidden intent.
 - Keep Qur'anic or ethical interpretation separate from empirical outcomes.
+- User-supplied synthesis entries are research notes, not quotations or independently verified findings. Do not imply books have been read unless licensed excerpts are actually indexed.
+- Shared religious belief, association, and documented coordination are separate propositions. Never infer collective wrongdoing from identity.
 - You may draft a scenario for user approval but you cannot run jobs or edit data.`;
 
 export const listSessions = createServerFn({ method: "GET" }).handler(async () => {
@@ -60,17 +62,24 @@ export const sendMessage = createServerFn({ method: "POST" })
     (exs.data ?? []).forEach((e) => excerptCount.set(e.source_id, (excerptCount.get(e.source_id) ?? 0) + 1));
     const score = (t: string) => words(t).filter((w) => q.has(w)).length;
     const ctxDocs = scoped.map((d) => ({ d, sc: score(`${d.title} ${d.summary}`) })).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 6);
-    const ctxEx = (exs.data ?? []).map((e) => ({ e, sc: score(e.excerpt) })).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 6);
+    // Apply the same source-scope filter to excerpts as to document metadata.
+    // Unverified research notes must never leak into the Neural Atlas scope.
+    const scopedSourceIds = new Set(scoped.map((d) => d.id));
+    const ctxEx = (exs.data ?? []).filter((e) => scopedSourceIds.has(e.source_id))
+      .map((e) => ({ e, sc: score(e.excerpt) }))
+      .filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 6);
 
     const blocks: string[] = [];
     const citations: { id: string; title: string; kind: string; detail?: string }[] = [];
     for (const { d } of ctxDocs) {
       const indexed = excerptCount.get(d.id) ? "EXCERPTS INDEXED" : "BIBLIOGRAPHY ONLY";
-      blocks.push(`<CONTEXT id="${d.id}" type="source_record" status="${indexed}" tier="${d.evidence_tier}">\n${d.title}\nStored summary: ${d.summary}\n</CONTEXT>`);
+      blocks.push(`<CONTEXT id="${d.id}" type="source_record" origin="${d.origin}" status="${indexed}" tier="${d.evidence_tier}" verification="${d.verification}">\n${d.title}\nStored summary (NOT book text): ${d.summary}\n</CONTEXT>`);
       citations.push({ id: d.id, title: d.title, kind: indexed });
     }
     for (const { e } of ctxEx) {
-      blocks.push(`<CONTEXT id="ex:${e.id.slice(0, 8)}" type="excerpt" source="${e.source_id}" page="${e.page ?? ""}" claim_status="${e.claim_status}">\n${e.excerpt}\n</CONTEXT>`);
+      const note = typeof e.provenance === "object" && e.provenance && "note" in e.provenance
+        ? String((e.provenance as { note?: unknown }).note ?? "") : "";
+      blocks.push(`<CONTEXT id="ex:${e.id.slice(0, 8)}" type="excerpt_or_research_note" source="${e.source_id}" page="${e.page ?? ""}" claim_status="${e.claim_status}" provenance_note="${note.replace(/"/g, "'")}">\n${e.excerpt}\n</CONTEXT>`);
       citations.push({ id: `ex:${e.id.slice(0, 8)}`, title: `Excerpt from ${e.source_id}`, kind: e.claim_status, ...(e.page ? { detail: e.page } : {}) });
     }
     if (data.run_id) {

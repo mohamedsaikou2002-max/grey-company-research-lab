@@ -3,7 +3,8 @@ import type { AgentState } from "@/lib/engine/swarm";
 const SHAPE: Record<string, string> = {
   accountability: "square", internal_review: "square", due_diligence: "square",
   collaboration: "circle", dialogue: "circle", routine_competition: "diamond",
-  scrutiny: "triangle", disengagement: "ring", no_response: "dot",
+  scrutiny: "triangle", undue_pressure: "triangle", improper_gatekeeping: "diamond",
+  disengagement: "ring", no_response: "dot",
 };
 
 /** Monochrome network: swarm agents arranged by role around ONE protagonist marker. Links = simulated interactions only. */
@@ -46,7 +47,8 @@ export const LEGEND = [
   ["■", "review / accountability / due diligence"],
   ["●", "collaboration / dialogue"],
   ["◆", "routine competition"],
-  ["▲", "scrutiny"],
+  ["▲", "scrutiny / hypothetical undue pressure"],
+  ["◆", "hypothetical improper gatekeeping"],
   ["○", "disengagement"],
   ["·", "no response"],
 ];

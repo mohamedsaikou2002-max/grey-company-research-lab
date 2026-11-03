@@ -72,7 +72,7 @@ export const sendMessage = createServerFn({ method: "POST" })
     const blocks: string[] = [];
     const citations: { id: string; title: string; kind: string; detail?: string }[] = [];
     for (const { d } of ctxDocs) {
-      const indexed = excerptCount.get(d.id) ? "EXCERPTS INDEXED" : "BIBLIOGRAPHY ONLY";
+      const indexed = excerptCount.get(d.id) ? (d.origin === "user_synthesis" ? "RESEARCH NOTES INDEXED" : "EXCERPTS INDEXED") : "BIBLIOGRAPHY ONLY";
       blocks.push(`<CONTEXT id="${d.id}" type="source_record" origin="${d.origin}" status="${indexed}" tier="${d.evidence_tier}" verification="${d.verification}">\n${d.title}\nStored summary (NOT book text): ${d.summary}\n</CONTEXT>`);
       citations.push({ id: d.id, title: d.title, kind: indexed });
     }

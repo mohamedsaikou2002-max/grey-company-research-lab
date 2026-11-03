@@ -246,9 +246,7 @@ function utilities(
   u.no_response += 1.5 * n.separation + 0.4 * (1 - salience);
   // Rumors are signals of uncertain information, never evidence of coordinated harm.
   if (ctx.rumor || n.allegation > 0.5) u.accountability += 0.25 * ctx.safeguards;
-  parts["fictional interaction salience"] = salience;
-  parts["assumed coercive pressure"] = assumedPressure;
-  return { u, parts };
+  return { u, parts: { ...parts, "fictional interaction salience": salience, "assumed coercive pressure": assumedPressure } };
 }
 
 export type RunResult = {

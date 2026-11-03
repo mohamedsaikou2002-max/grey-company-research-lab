@@ -11,6 +11,7 @@ import { Panel, Tag } from "@/components/lab/Shell";
 import { WeightEditor, Field, inputCls, download } from "@/components/lab/controls";
 import { SwarmNetwork, LEGEND } from "@/components/lab/SwarmNetwork";
 import { defaultInput } from "@/lib/engine/defaults";
+import { ResearchCascadePanel } from "@/components/research/ResearchCascadePanel";
 import { INDIVIDUAL_STRATEGIES, RESPONSES, type RunInput, type RunResult, type Swarm, type Individual, type Scenario } from "@/lib/engine/swarm";
 import { createRun, createPythonRun, createPythonV3Compare, deleteSwarm, engineStatus, ingestExcerpt, listProfiles, listSources, saveIndividual, saveScenario, saveSwarm } from "@/lib/lab.functions";
 
@@ -145,6 +146,8 @@ function OccultKiller() {
         <Tag>python v2: {engine ? (engine.python.ok ? "connected" : engine.python.detail) : "checking…"}</Tag>
         <SourcesDrawer />
       </div>
+
+      <ResearchCascadePanel context="Institutional social scenarios" />
 
       <div className="grid gap-4 lg:grid-cols-12">
         {/* SWARM 55% */}

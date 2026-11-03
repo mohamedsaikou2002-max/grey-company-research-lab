@@ -66,16 +66,18 @@ type NativeOutput={
 };
 
 export const nativeNeuralStatus=createServerFn({method:"GET"}).handler(async()=>({
-  configured:Boolean(process.env["NEUROPHYSICS_BIN"]),
+  configured:Boolean((process.env["NEUROPHYSICS_URL"]&&process.env["NEURO_SERVICE_TOKEN"])||process.env["NEUROPHYSICS_BIN"]),
   engine:"native C++ Wilson-Cowan v0.1",
-  note:"Requires an externally compiled executable at NEUROPHYSICS_BIN. This app cannot compile C++ on demand.",
+  note:"Remote Python C++ service via NEUROPHYSICS_URL + NEURO_SERVICE_TOKEN, or compiled executable on a Node-capable server.",
 }));
 
 export const runNativeNeural=createServerFn({method:"POST"})
  .inputValidator((raw:unknown)=>CueInput.parse(raw))
  .handler(async({data})=>{
   const binary=process.env["NEUROPHYSICS_BIN"];
-  if(!binary)throw new Error("Native C++ unavailable: deploy the compiled neurophysics executable and set NEUROPHYSICS_BIN.");
+  const remote=process.env["NEUROPHYSICS_URL"]?.replace(/\/$/,"");
+  const token=process.env["NEURO_SERVICE_TOKEN"];
+  if(!(remote&&token)&&!binary)throw new Error("Native C++ unavailable: configure NEUROPHYSICS_URL and NEURO_SERVICE_TOKEN for the Python/C++ service.");
   const ai=await cueFromGemini(data.narrative);
   const heuristic=localCues(data.narrative,data.stress_tolerance);
   const source=ai?"gemini_json_cues":"explicit_lexical_cues";
@@ -85,13 +87,27 @@ export const runNativeNeural=createServerFn({method:"POST"})
    attention:data.attention??ai?.attention??heuristic.attention,
    arousal:data.arousal??ai?.arousal??heuristic.arousal,
   };
-  const {execFile}=await import("node:child_process");
-  const {promisify}=await import("node:util");
-  const run=promisify(execFile);
   const command=async(params:Params):Promise<NativeOutput>=>{
-    const argv=[params.alcohol,params.stress,params.attention,params.arousal,data.seconds,data.seed].map(String);
-    const {stdout}=await run(binary,argv,{timeout:15000,maxBuffer:200000,windowsHide:true});
-    const result=JSON.parse(stdout) as NativeOutput;
+    let result:NativeOutput;
+    if(remote&&token){
+      // Cloudflare/Lovable runtimes cannot spawn native processes. Use a
+      // private authenticated Python service over HTTPS instead.
+      const r=await fetch(remote+"/api/neurophysics/simulate",{
+        method:"POST",signal:AbortSignal.timeout(20000),
+        headers:{"content-type":"application/json","authorization":"Bearer "+token},
+        body:JSON.stringify({...params,seconds:data.seconds,seed:data.seed}),
+      });
+      if(!r.ok)throw new Error("Native service error HTTP "+r.status);
+      result=await r.json() as NativeOutput;
+    }else{
+      // For self-hosted Node only; do not use on Cloudflare workers.
+      const {execFile}=await import("node:child_process");
+      const {promisify}=await import("node:util");
+      const run=promisify(execFile);
+      const argv=[params.alcohol,params.stress,params.attention,params.arousal,data.seconds,data.seed].map(String);
+      const {stdout}=await run(binary!,argv,{timeout:15000,maxBuffer:200000,windowsHide:true});
+      result=JSON.parse(stdout) as NativeOutput;
+    }
     if(result?.model!=="wilson-cowan-regional-v0.1"||result.regions?.length!==50||result.sensor_proxy?.some(v=>!Number.isFinite(v)))throw new Error("Native model output invalid");
     return result;
   };

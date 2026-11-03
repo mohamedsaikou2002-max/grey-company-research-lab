@@ -34,3 +34,34 @@ jobs:
           assert abs(sum(p['band_shares'].values())-1)<0.02
           print('Native C++ solver output and source-proxy checks passed')
           PY
+      - name: Test authenticated Python/C++ HTTP broker
+        run: |
+          export NEURO_SERVICE_TOKEN=test-only-secret-abcdefghijklmnopqrstuvwxyz
+          export NEUROPHYSICS_BIN=/tmp/neurophysics
+          export NEURO_SERVICE_PORT=8769
+          python3 services/neuro_service.py > /tmp/neuro-service-test.log 2>&1 &
+          SERVICE_PID=$!
+          trap 'kill "$SERVICE_PID" 2>/dev/null || true' EXIT
+          sleep 2
+          python3 - <<'PY'
+          import json
+          import urllib.request
+          import urllib.error
+          url='http://127.0.0.1:8769'
+          try:
+              urllib.request.urlopen(url+'/api/health')
+              raise AssertionError('Unauthenticated request unexpectedly succeeded')
+          except urllib.error.HTTPError as e:
+              assert e.code==401
+          token='Bearer test-only-secret-abcdefghijklmnopqrstuvwxyz'
+          req=urllib.request.Request(url+'/api/health', headers={'Authorization':token})
+          health=json.load(urllib.request.urlopen(req, timeout=10))
+          assert health['status']=='ok'
+          data=json.dumps({'alcohol':0.4,'stress':0.3,'attention':0.5,'arousal':0.5,'seconds':2,'seed':19}).encode()
+          req=urllib.request.Request(url+'/api/neurophysics/simulate',data=data,
+                headers={'Authorization':token,'Content-Type':'application/json'}, method='POST')
+          result=json.load(urllib.request.urlopen(req, timeout=30))
+          assert len(result['regions'])==50
+          assert len(result['sensor_proxy'])>10
+          print('Authenticated HTTP Python/C++ integration passed')
+          PY

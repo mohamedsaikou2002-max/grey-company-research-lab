@@ -287,7 +287,7 @@ function OccultKiller() {
       {pyV3Run&&<Panel title="Python v3 — legacy synthetic comparison" actions={<Tag>NOT A FIVE-YEAR PREDICTION</Tag>}>
         <p className="text-xs text-muted-foreground">{pyV3Run.mapping_note}</p>
         <p className="mt-2 text-xs font-mono">Engine: {pyV3Run.engine} · Best in its own scoring formula: {String(pyV3Run.result.best_in_model||"n/a")}</p>
-        <div className="mt-2 space-y-1">{(Array.isArray(pyV3Run.result.strategies)?pyV3Run.result.strategies:[]).slice(0,11).map((a:any,i:number)=><div key={i} className="flex justify-between border-b border-border py-1 text-xs"><span>{a.strategy}</span><span className="font-mono">{a.score}</span></div>)}</div>
+        <div className="mt-2 space-y-1">{(Array.isArray(pyV3Run.result.strategies)?pyV3Run.result.strategies:[]).slice(0,11).map((a,i:number)=><div key={i} className="flex justify-between border-b border-border py-1 text-xs"><span>{a.strategy}</span><span className="font-mono">{a.score}</span></div>)}</div>
         <Button size="sm" variant="outline" onClick={()=>download("python-v3.json",JSON.stringify(pyV3Run,null,2))}>EXPORT PYTHON RESULT</Button>
       </Panel>}
       {!run ? (

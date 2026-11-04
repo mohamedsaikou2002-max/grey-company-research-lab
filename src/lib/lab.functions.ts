@@ -163,9 +163,7 @@ export const createPythonRun = createServerFn({ method: "POST" })
 export const createPythonV3Compare = createServerFn({ method: "POST" })
  .inputValidator((d: unknown) => RunInputSchema.parse(d))
  .handler(async ({ data }) => {
-   if ((data.swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test") {
-     throw new Error("Python v3 has no absolute-evil stress-test parameters. Use TypeScript v4.2 or switch to Neutral reference.");
-   }
+   // The new Python v4.3 engine implements both fictional worst-case and neutral-reference presets.
    const url=await pythonUrl();
    if (!url) throw new Error("Python v3 unavailable: set PYTHON_SIM_URL to the hosted Occult Killer v3 server.");
    const event: Record<string,string>={
@@ -200,6 +198,10 @@ export const createPythonV3Compare = createServerFn({ method: "POST" })
      seed:data.scenario.seed,
      rounds:Math.max(1,Math.min(12,Math.ceil(data.scenario.months/5))),
      pressure:data.scenario.external_shock,
+     safeguards:data.scenario.safeguards,
+     baseline_mode:data.swarm.baseline_mode,
+     narrative:data.scenario.narrative,
+     evidence_tier:data.scenario.evidence_tier,
      individual_objective:(data.individual.lawful_objective||"Independent lawful founder").slice(0,500),
      individual:Object.fromEntries(["patience","humility","verification_discipline","compassion","boundary_discipline"]
        .map(k=>[k,data.individual.traits[k]??0.5])),
@@ -213,14 +215,14 @@ export const createPythonV3Compare = createServerFn({ method: "POST" })
      throw new Error("Python v3 compare error: "+JSON.stringify(result).slice(0,250));
    const s=await db();
    const {data:row,error}=await s.from("simulation_runs").insert({
-      status:"COMPLETED",engine:"python-v3",model_version:"occult-killer-v3",
+      status:"COMPLETED",engine:"python-v4.3",model_version:"gc-group-sim-py-4.3.0",
       seed:data.scenario.seed,input_hash:hashInput(payload),
-      input:{payload,original_input:data},summary:{result,warning:"Lossy adapter: motives and absolute-evil mode unsupported; rounds are not months."},
+      input:{payload,original_input:data},summary:{result,warning:"Python v4.3 supports the synthetic worst-case preset; six group traits map through this adapter. Rounds are not months."},
       frames:null,agents:null,
    }).select("id").single();
    fail(error);
-   return {id:row!.id,engine:"python-v3" as const,result,
-     mapping_note:"Python v3 interprets rounds as abstract steps, not months. Group motives and most individual strategy distinctions are not represented. No real-world validity."};
+   return {id:row!.id,engine:"python-v4.3" as const,result,
+     mapping_note:"Python v4.3 is a fictional, unvalidated worst-case/neutral comparison. Rounds are abstract steps, not months. Six group traits map through the adapter, not the full motive profile. Synthetic response shares are not probabilities for real people."};
  });
 
 export const listRuns = createServerFn({ method: "GET" }).handler(async () => {

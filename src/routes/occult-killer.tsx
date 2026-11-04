@@ -92,10 +92,10 @@ function OccultKiller() {
       await persist();
       const input: RunInput = { swarm, individual: ind, scenario: sc };
       if (useEngine === "python" || useEngine === "python_v3") {
-        if ((swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test") throw new Error("The Python legacy engines do not implement the absolute-evil preset; select TypeScript or Neutral reference.");
+        if (useEngine === "python" && (swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test") throw new Error("Python v2 does not implement the worst-case preset; select Python v4.3 or TypeScript.");
         if (useEngine === "python_v3") {
           const r=await fPyV3({data:input});
-          setPyV3Run(r);setRun(null);toast.success(`Python v3 comparison saved (${r.id.slice(0,8)})`);
+          setPyV3Run(r);setRun(null);toast.success(`Python v4.3 comparison saved (${r.id.slice(0,8)})`);
         } else {
           const r = await fPy({ data: input });
           toast.success(`Python v2 run saved (${r.id.slice(0, 8)}). Aggregate output only.`);
@@ -265,7 +265,7 @@ function OccultKiller() {
             <Field label={`External shock ${sc.external_shock.toFixed(2)}`}><Slider min={0} max={1} step={0.01} value={[sc.external_shock]} onValueChange={(vals) => setSc({ ...sc, external_shock: vals[0] ?? sc.external_shock })} /></Field>
             <Field label="Engine"><select className={inputCls} value={useEngine} onChange={(e) => setUseEngine(e.target.value as "typescript" | "python" | "python_v3")}>
               <option value="typescript">TypeScript v4.2 (built-in)</option>
-              <option value="python_v3" disabled={!engine?.pythonV3.ok || (swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test"}>Python v3 {engine?.pythonV3.ok ? "(neutral comparison)" : "(not connected)"}</option>
+              <option value="python_v3" disabled={!engine?.pythonV3.ok}>Python v4.3 {engine?.pythonV3.ok ? "(worst-case + neutral)" : "(not connected)"}</option>
               <option value="python" disabled={!engine?.python.ok || (swarm.baseline_mode ?? "absolute_evil_stress_test") === "absolute_evil_stress_test"}>Python v2 {engine?.python.ok ? "(aggregate only)" : "(not connected)"}</option>
             </select></Field>
           </div>
@@ -287,9 +287,10 @@ function OccultKiller() {
         </div>
       </Panel>
 
-      {pyV3Run&&<Panel title="Python v3 — legacy synthetic comparison" actions={<Tag>NOT A FIVE-YEAR PREDICTION</Tag>}>
+      {pyV3Run&&<Panel title="Python v4.3 — fictional worst-case comparison" actions={<Tag>SYNTHETIC / UNVALIDATED</Tag>}>
         <p className="text-xs text-muted-foreground">{pyV3Run.mapping_note}</p>
-        <p className="mt-2 text-xs font-mono">Engine: {pyV3Run.engine} · Best in its own scoring formula: {String(pyV3Run.result.best_in_model||"n/a")}</p>
+        <p className="mt-2 text-xs font-mono">Engine: {pyV3Run.engine} · Best lawful defense in its model-only score: {String(pyV3Run.result.best_in_model||"n/a")}</p>
+        {Array.isArray(pyV3Run.result.next_response_categories) && <p className="mt-2 text-xs text-muted-foreground">Abstract synthetic response categories: {(pyV3Run.result.next_response_categories as Array<{category:string;synthetic_share:number}>).map(x=>`${x.category} ${(x.synthetic_share*100).toFixed(1)}%`).join(" · ")}. These are not verified predictions about anyone.</p>}
         <div className="mt-2 space-y-1">{(Array.isArray(pyV3Run.result.strategies)?pyV3Run.result.strategies:[]).slice(0,11).map((a,i:number)=><div key={i} className="flex justify-between border-b border-border py-1 text-xs"><span>{a.strategy}</span><span className="font-mono">{a.score}</span></div>)}</div>
         <Button size="sm" variant="outline" onClick={()=>download("python-v3.json",JSON.stringify(pyV3Run,null,2))}>EXPORT PYTHON RESULT</Button>
       </Panel>}
